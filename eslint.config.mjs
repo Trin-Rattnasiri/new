@@ -12,5 +12,16 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
+// tailwind.config.js
+module.exports = {
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx}", // ต้องรวมให้ครอบคลุม component ทั้งหมด
+  ],
+  theme: {
+    extend: {}, // ถ้าไม่ได้ตัดค่า default ออก gradient จะทำงาน
+  },
+  plugins: [],
+};
+
 
 export default eslintConfig;
