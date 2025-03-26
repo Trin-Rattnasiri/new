@@ -11,4 +11,4 @@ DB_NAME=hospital_booking
 6. ใส่database ในไฟล์sql โฟลดเดอร์ตั้งชื่อ db ว่า hospital_booking
 
 
-gooo
+gooo..
