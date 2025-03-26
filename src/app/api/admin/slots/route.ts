@@ -17,9 +17,10 @@ export async function POST(req: Request) {
   try {
     // รับข้อมูล JSON จาก body
     const body = await req.json();
-    const { department_id, slot_date, time_slot, available_seats } = body;
+    const { department_id, slot_date, start_time, end_time, available_seats } = body;
 
-    if (!department_id || !slot_date || !time_slot || !available_seats) {
+    // ตรวจสอบให้แน่ใจว่ามีการกรอกข้อมูลครบถ้วน
+    if (!department_id || !slot_date || !start_time || !end_time || !available_seats) {
       return NextResponse.json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
     }
 
@@ -27,8 +28,8 @@ export async function POST(req: Request) {
     connection = await getConnection();
 
     // เพิ่มเวลา (slot) ให้แผนกที่มีอยู่แล้ว
-    const query = 'INSERT INTO slots (department_id, slot_date, time_slot, available_seats) VALUES (?, ?, ?, ?)';
-    await connection.query(query, [department_id, slot_date, time_slot, available_seats]);
+    const query = 'INSERT INTO slots (department_id, slot_date, start_time, end_time, available_seats) VALUES (?, ?, ?, ?, ?)';
+    await connection.query(query, [department_id, slot_date, start_time, end_time, available_seats]);
 
     return NextResponse.json({ message: 'เพิ่มเวลา (slot) สำเร็จ' }, { status: 201 });
   } catch (error) {

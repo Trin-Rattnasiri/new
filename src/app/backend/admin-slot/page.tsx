@@ -15,7 +15,8 @@ type Slot = {
   id: number;
   department_name: string;
   slot_date: string;
-  time_slot: string;
+  start_time: string;
+  end_time: string;
   available_seats: number;
   has_bookings?: boolean; // Flag to indicate if slot has bookings
 };
@@ -146,6 +147,12 @@ const AdminSlots = () => {
     });
   };
 
+  // Format time for display (HH:MM)
+  const formatTime = (timeString: string) => {
+    const date = new Date(`1970-01-01T${timeString}Z`);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   if (loading) return <p className="text-center">Loading slots...</p>;
   if (error) return <p className="text-center text-red-500">{error}</p>;
 
@@ -160,7 +167,8 @@ const AdminSlots = () => {
             <TableRow>
               <TableHead>Department</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead>Time Slot</TableHead>
+              <TableHead>Start Time</TableHead>
+              <TableHead>End Time</TableHead>
               <TableHead>Available Seats</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -172,7 +180,8 @@ const AdminSlots = () => {
                 <TableRow key={slot.id} className="hover:bg-gray-100">
                   <TableCell>{slot.department_name}</TableCell>
                   <TableCell>{formatDate(slot.slot_date)}</TableCell>
-                  <TableCell>{slot.time_slot}</TableCell>
+                  <TableCell>{formatTime(slot.start_time)}</TableCell>
+                  <TableCell>{formatTime(slot.end_time)}</TableCell>
                   <TableCell>{slot.available_seats}</TableCell>
                   <TableCell>
                     {slot.has_bookings ? (
@@ -198,7 +207,7 @@ const AdminSlots = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">No slots available</TableCell>
+                <TableCell colSpan={7} className="text-center">No slots available</TableCell>
               </TableRow>
             )}
           </TableBody>

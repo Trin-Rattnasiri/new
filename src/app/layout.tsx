@@ -1,10 +1,6 @@
-// app/layout.tsx
-
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,13 +20,12 @@ export const metadata: Metadata = {
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} flex h-screen w-full`}>
-        <SidebarProvider>
-          <div className="flex w-full h-full">
-            <AppSidebar />
-            <main className="flex-1 w-full">{children}</main>
-          </div>
-        </SidebarProvider>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} flex h-screen w-full`}
+      >
+        <div className="flex w-full h-full">
+          <main className="flex-1 w-full">{children}</main>
+        </div>
       </body>
     </html>
   );

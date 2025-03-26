@@ -1,216 +1,127 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from 'react';
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Loader2 } from 'lucide-react';  // For loading spinner icon (optional)
 
-const Page = () => {
-  const [departments, setDepartments] = useState<any[]>([]); // สำหรับแผนกทั้งหมด
-  const [dates, setDates] = useState<any[]>([]); // สำหรับวันที่ที่สามารถเลือกได้
-  const [slots, setSlots] = useState<any[]>([]); // สำหรับเวลาที่สามารถจองได้
-  const [userName, setUserName] = useState<string>(''); // ชื่อผู้จอง
-  const [phoneNumber, setPhoneNumber] = useState<string>(''); // เบอร์โทร
-  const [idCardNumber, setIdCardNumber] = useState<string>(''); // บัตรประชาชน
-  const [selectedDepartment, setSelectedDepartment] = useState<string>(''); // แผนกที่เลือก
-  const [selectedDate, setSelectedDate] = useState<string>(''); // วันที่เลือก
-  const [selectedSlot, setSelectedSlot] = useState<string>(''); // เวลาที่เลือก
+interface Booking {
+  booking_reference_number: string;
+  user_name: string;
+  department_name: string;
+  start_time: string;
+  end_time: string;
+  booking_date: string; // Added booking_date to the interface
+  status: 'pending' | 'confirmed' | 'cancelled';
+}
 
-  useEffect(() => {
-    async function fetchDepartments() {
-      const response = await fetch('/api/bookings'); // คุณอาจต้องเปลี่ยน URL ให้เหมาะสม
-      const data = await response.json();
-      setDepartments(data);
-    }
-    fetchDepartments();
-  }, []);
+// Function to format the date as dd/mm/yyyy in Thai Buddhist Era (B.E.)
+const formatBookingDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const day = date.getDate();
+  const month = date.getMonth() + 1; // Months are 0-indexed
+  const year = date.getFullYear() + 543; // Convert to Thai Buddhist Era (B.E.)
 
-  // ฟังก์ชันสำหรับแปลงวันที่เป็นรูปแบบ YYYY-MM-DD
-  const formatDate = (dateString: string): string => {
+  return `${day}/${month}/${year}`;
+};
+
+const AdminSearchPage = () => {
+  const [bookingReferenceNumber, setBookingReferenceNumber] = useState('');
+  const [status, setStatus] = useState('');
+  const [bookingData, setBookingData] = useState<Booking | null>(null);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSearch = async () => {
+    setIsLoading(true);
     try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        return dateString; // ถ้าแปลงไม่ได้ ส่งค่าเดิมกลับไป
+      const res = await fetch(`/api/admin/seach?booking_reference_number=${bookingReferenceNumber}`);
+      if (!res.ok) {
+        throw new Error('Booking not found');
+      }
+      const data = await res.json();
+      setBookingData(data.booking);
+      setError('');
+    } catch (err: any) {
+      setError(err.message);
+      setBookingData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/seach', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingReferenceNumber,
+          status: newStatus,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update status');
       }
 
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-
-      return `${year}-${month}-${day}`;
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return dateString; // ถ้าเกิด error ส่งค่าเดิมกลับไป
+      const data = await res.json();
+      setBookingData((prevData: any) => ({ ...prevData, status: newStatus }));
+      setError('');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  // ดึงข้อมูลวันที่ที่สามารถเลือกได้เมื่อเลือกแผนก
-  const fetchDates = async (departmentId: string) => {
-    const response = await fetch(`/api/bookings?departmentId=${departmentId}`);
-    const data = await response.json();
-    setDates(data);
-  };
-
-  // ดึงข้อมูลเวลาที่สามารถจองได้เมื่อเลือกวันที่
-  const fetchSlots = async (departmentId: string, date: string) => {
-    const formattedDate = formatDate(date); // แปลงวันที่ก่อนส่งไป API
-    console.log('Sending date to API:', formattedDate);
-
-    const response = await fetch(`/api/bookings/slots?departmentId=${departmentId}&date=${formattedDate}`);
-    const data = await response.json();
-    setSlots(data);
-  };
-
-  const handleDepartmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const departmentId = e.target.value;
-    setSelectedDepartment(departmentId);
-    setSelectedDate('');
-    setSelectedSlot('');
-    if (departmentId) {
-      fetchDates(departmentId); // ดึงวันที่ที่สามารถเลือกได้เมื่อเลือกแผนก
-    }
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const date = e.target.value;
-    setSelectedDate(date);
-    setSelectedSlot('');
-    if (selectedDepartment && date) {
-      fetchSlots(selectedDepartment, date); // ดึงเวลาเมื่อเลือกวันที่
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!userName || !selectedDepartment || !selectedSlot || !selectedDate || !phoneNumber || !idCardNumber) {
-      alert('กรุณากรอกข้อมูลให้ครบ');
-      return;
-    }
-
-    const response = await fetch('/api/admin/que', { // ใช้ URL ใหม่ของ API ที่สร้างขึ้น
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        user_name: userName,
-        department_id: selectedDepartment,
-        slot_id: selectedSlot,
-        phone_number: phoneNumber, // ส่งเบอร์โทร
-        id_card_number: idCardNumber, // ส่งบัตรประชาชน
-      }),
-    });
-
-    const result = await response.json();
-    alert(result.message);
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-semibold text-center mb-6">ระบบจองคิวโรงพยาบาล</h1>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ฟิลด์ชื่อผู้จอง */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="userName">ชื่อผู้จอง:</label>
-          <input
-            id="userName"
-            type="text"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          />
-        </div>
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-3xl font-bold text-center mb-8">Admin Booking Search</h1>
 
-        {/* ฟิลด์เบอร์โทร */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="phoneNumber">เบอร์โทร:</label>
-          <input
-            id="phoneNumber"
-            type="text"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          />
-        </div>
+      <div className="mb-4 flex justify-center items-center space-x-4">
+        <Input
+          placeholder="Enter Booking Reference Number"
+          value={bookingReferenceNumber}
+          onChange={(e) => setBookingReferenceNumber(e.target.value)}
+          className="w-72"
+        />
+        <Button onClick={handleSearch} className="w-28">Search</Button>
+      </div>
 
-        {/* ฟิลด์บัตรประชาชน */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="idCardNumber">บัตรประชาชน:</label>
-          <input
-            id="idCardNumber"
-            type="text"
-            value={idCardNumber}
-            onChange={(e) => setIdCardNumber(e.target.value)}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          />
+      {isLoading && (
+        <div className="flex justify-center my-4">
+          <Loader2 className="animate-spin" size={30} />
         </div>
+      )}
 
-        {/* ฟิลด์เลือกแผนก */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="department">เลือกแผนก:</label>
-          <select
-            id="department"
-            value={selectedDepartment}
-            onChange={handleDepartmentChange}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          >
-            <option value="">เลือกแผนก</option>
-            {departments.map((dept) => (
-              <option key={dept.id} value={dept.id}>
-                {dept.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      {error && <div className="text-red-500 text-center mt-4">{error}</div>}
 
-        {/* ฟิลด์เลือกวันที่ */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="date">เลือกวันที่:</label>
-          <select
-            id="date"
-            value={selectedDate}
-            onChange={handleDateChange}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          >
-            <option value="">เลือกวันที่</option>
-            {dates.map((date) => {
-              const displayDate = formatDate(date.slot_date);
-              return (
-                <option key={date.slot_date} value={date.slot_date}>
-                  {displayDate}
-                </option>
-              );
-            })}
-          </select>
-        </div>
+      {bookingData && (
+        <Card className="mt-8 shadow-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Booking Details</h2>
+          <div>
+            <p className="font-semibold">Booking Reference: <span className="font-normal">{bookingData.booking_reference_number}</span></p>
+            <p className="font-semibold">User Name: <span className="font-normal">{bookingData.user_name}</span></p>
+            <p className="font-semibold">Department: <span className="font-normal">{bookingData.department_name}</span></p>
+            <p className="font-semibold">Booking Date: <span className="font-normal">{formatBookingDate(bookingData.booking_date)}</span></p> {/* Display formatted booking date */}
+            <p className="font-semibold">Booking Time: <span className="font-normal">{new Date(`1970-01-01T${bookingData.start_time}Z`).toLocaleTimeString()} - {new Date(`1970-01-01T${bookingData.end_time}Z`).toLocaleTimeString()}</span></p> {/* Format and display start/end times */}
+            <p className="font-semibold">Status: <span className="font-normal">{bookingData.status}</span></p>
+          </div>
 
-        {/* ฟิลด์เลือกเวลา */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="slot">เลือกเวลา:</label>
-          <select
-            id="slot"
-            value={selectedSlot}
-            onChange={(e) => setSelectedSlot(e.target.value)}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          >
-            <option value="">เลือกเวลา</option>
-            {slots.map((slot) => (
-              <option key={slot.id} value={slot.id}>
-                {slot.time_slot} (ที่นั่งว่าง: {slot.available_seats})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <Button className="w-full py-3 mt-4 bg-blue-600 text-white rounded-md hover:bg-blue-700" type="submit">จองคิว</Button>
-      </form>
+          <div className="mt-6 flex justify-center space-x-4">
+            <Button onClick={() => handleUpdateStatus('pending')} className="w-28">Set as Pending</Button>
+            <Button onClick={() => handleUpdateStatus('confirmed')} className="w-28">Set as Confirmed</Button>
+            <Button onClick={() => handleUpdateStatus('cancelled')} className="w-28">Set as Cancelled</Button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
 
-export default Page;
+export default AdminSearchPage;

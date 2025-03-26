@@ -33,7 +33,7 @@ const navigationItems = [
     icon: Settings,
   },
 ];
-export function AppSidebar() {
+export function AppSidebarAdmin() {
   return (
     <div className="h-screen w-64 bg-slate-900 text-white flex flex-col">
       <div className="p-4 flex flex-col h-full">

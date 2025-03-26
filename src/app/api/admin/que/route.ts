@@ -10,7 +10,6 @@ const getConnection = async () => {
     database: process.env.DB_NAME,
   });
 };
-
 // POST - จองคิว
 export async function POST(req: Request) {
   let connection;
@@ -28,8 +27,8 @@ export async function POST(req: Request) {
 
     // เพิ่มข้อมูลการจองคิว
     const query = `
-      INSERT INTO bookings (user_name, department_id, slot_id, phone_number, id_card_number)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO bookings (user_name, department_id, slot_id, phone_number, id_card_number, status)
+      VALUES (?, ?, ?, ?, ?, 'pending')
     `;
     const [result] = await connection.query(query, [
       user_name,
@@ -41,7 +40,39 @@ export async function POST(req: Request) {
 
     // ตรวจสอบว่าได้เพิ่มข้อมูลการจองสำเร็จ
     if ((result as mysql.ResultSetHeader).affectedRows > 0) {
-      return NextResponse.json({ message: 'จองคิวสำเร็จ' }, { status: 201 });
+      // ดึงหมายเลขการจองที่สร้างขึ้น
+      const bookingId = (result as mysql.ResultSetHeader).insertId;
+
+      // สร้างหมายเลขการจอง (booking_reference_number) โดยใช้ปีและลำดับการจอง
+      const currentYear = new Date().getFullYear();
+      const bookingCountQuery = `SELECT COUNT(*) AS booking_count FROM bookings WHERE YEAR(booking_date) = ?`;
+      const [bookingCountResult] = await connection.query(bookingCountQuery, [currentYear]);
+      const bookingCount = (bookingCountResult as mysql.RowDataPacket[])[0].booking_count;
+
+      // สร้างหมายเลขการจองแบบล้วนๆ (ไม่มีเครื่องหมายขีดกลาง)
+      const bookingReferenceNumber = `${currentYear}${String(bookingCount).padStart(5, '0')}`;
+
+      // อัปเดต booking_reference_number ในฐานข้อมูล
+      const updateReferenceNumberQuery = `
+        UPDATE bookings
+        SET booking_reference_number = ?
+        WHERE id = ?
+      `;
+      await connection.query(updateReferenceNumberQuery, [bookingReferenceNumber, bookingId]);
+
+      // ลดจำนวนที่นั่งในตาราง slots
+      const updateSeatsQuery = `
+        UPDATE slots
+        SET available_seats = available_seats - 1
+        WHERE id = ?
+      `;
+      await connection.query(updateSeatsQuery, [slot_id]);
+
+      // ส่งกลับข้อมูลการจองพร้อมหมายเลขการจอง
+      return NextResponse.json({ 
+        message: 'จองคิวสำเร็จ', 
+        bookingReferenceNumber 
+      }, { status: 201 });
     } else {
       return NextResponse.json({ message: 'ไม่สามารถจองคิวได้' }, { status: 400 });
     }

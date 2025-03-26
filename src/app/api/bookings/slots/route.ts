@@ -14,7 +14,7 @@ const getConnection = async () => {
 // ฟังก์ชันสำหรับแปลงวันที่เป็นรูปแบบ YYYY-MM-DD
 function formatDate(dateString: string | null): string | null {
   if (!dateString) return null;
-  
+
   try {
     // รองรับหลายรูปแบบของ input ที่อาจเข้ามา
     let date;
@@ -26,12 +26,12 @@ function formatDate(dateString: string | null): string | null {
       // กรณีเป็นตัวเลข (timestamp)
       date = new Date(parseInt(dateString));
     }
-    
+
     if (isNaN(date.getTime())) {
       console.error('Invalid date:', dateString);
       return null;
     }
-    
+
     // แปลงเป็นรูปแบบ YYYY-MM-DD
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -83,7 +83,7 @@ export async function GET(req: Request) {
     
     // ดึงข้อมูลเวลา (slot) สำหรับแผนกและวันที่ที่เลือก
     const query = `
-      SELECT s.id, s.time_slot, s.available_seats, d.name AS department_name
+      SELECT s.id, s.start_time, s.end_time, s.available_seats, d.name AS department_name
       FROM slots s
       JOIN departments d ON s.department_id = d.id
       WHERE s.department_id = ? AND DATE(s.slot_date) = ?`;
@@ -94,6 +94,10 @@ export async function GET(req: Request) {
     console.log(`Found ${slots.length} slots for department ${departmentId} on date ${formattedDate}`);
     
     // ส่งข้อมูลที่ได้กลับเป็น JSON
+    if (slots.length === 0) {
+      return NextResponse.json({ message: 'ไม่พบเวลาที่สามารถจองได้ในวันที่เลือก' }, { status: 404 });
+    }
+    
     return NextResponse.json(slots);
     
   } catch (error) {

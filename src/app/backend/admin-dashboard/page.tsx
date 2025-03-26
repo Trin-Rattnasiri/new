@@ -12,6 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 
+
+
+
+
 interface Department {
   id: number;
   name: string;
@@ -21,7 +25,8 @@ const AdminDashboard = () => {
   const [departmentList, setDepartmentList] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [slotDate, setSlotDate] = useState<string>('');
-  const [timeSlot, setTimeSlot] = useState<string>('');
+  const [startTime, setStartTime] = useState<string>(''); // เพิ่ม start time
+  const [endTime, setEndTime] = useState<string>('');   // เพิ่ม end time
   const [availableSeats, setAvailableSeats] = useState<number>(0);
 
   useEffect(() => {
@@ -43,7 +48,8 @@ const AdminDashboard = () => {
       body: JSON.stringify({
         department_id: selectedDepartment,
         slot_date: slotDate,
-        time_slot: timeSlot,
+        start_time: startTime, // ส่งเวลาเริ่มต้น
+        end_time: endTime,     // ส่งเวลาสิ้นสุด
         available_seats: availableSeats,
       }),
     });
@@ -87,11 +93,21 @@ const AdminDashboard = () => {
             </div>
             
             <div className="space-y-2">
-              <Label>เลือกเวลา:</Label>
+              <Label>เลือกเวลาเริ่มต้น:</Label>
               <Input
                 type="time"
-                value={timeSlot}
-                onChange={(e) => setTimeSlot(e.target.value)}
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>เลือกเวลาสิ้นสุด:</Label>
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
                 className="w-full"
               />
             </div>
