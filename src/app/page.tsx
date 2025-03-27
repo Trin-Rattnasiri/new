@@ -18,35 +18,40 @@ const LoginPage = () => {
     const value = e.target.value.replace(/\D/g, "").slice(0, 13);
     setCitizenId(value);
   };
+// Handle Login submission
+const handleLogin = async () => {
+  if (citizenId.length < 13 || password.length < 6) {
+    alert("⚠ กรุณากรอกเลขบัตรประชาชน 13 หลักและรหัสผ่านอย่างน้อย 6 ตัว");
+    return;
+  }
 
-  // Handle Login submission
-  const handleLogin = async () => {
-    if (citizenId.length < 13 || password.length < 6) {
-      alert("⚠ กรุณากรอกเลขบัตรประชาชน 13 หลักและรหัสผ่านอย่างน้อย 6 ตัว");
-      return;
-    }
+  setLoading(true);
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ citizenId, password }),
+    });
 
-    setLoading(true);
-    try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ citizenId, password }),
-      });
+    if (response.ok) {
+      alert("✅ เข้าสู่ระบบสำเร็จ!");
+      localStorage.setItem("citizenId", citizenId);
 
-      if (response.ok) {
-        alert("✅ เข้าสู่ระบบสำเร็จ!");
-        localStorage.setItem("citizenId", citizenId);
-        router.push("/front/user-choose");
+      // ✅ ตรวจว่า password เป็นรหัส admin หรือไม่
+      if (password === "mchadmin2024") {
+        router.push("/backend/admin-booking");
       } else {
-        alert("❌ เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง");
+        router.push("/front/user-choose");
       }
-    } catch (error) {
-      console.error("เกิดข้อผิดพลาดในการเข้าสู่ระบบ:", error);
-      alert("❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+    } else {
+      alert("❌ เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง");
     }
-    setLoading(false);
-  };
+  } catch (error) {
+    console.error("เกิดข้อผิดพลาดในการเข้าสู่ระบบ:", error);
+    alert("❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+  }
+  setLoading(false);
+};
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">

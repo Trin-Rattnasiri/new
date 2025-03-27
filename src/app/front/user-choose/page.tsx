@@ -11,7 +11,7 @@ const DashboardPage = () => {
 
         <div className="absolute top-2 left-4">
           <Image
-            src="/man.jpg"
+            src="/man.png"
             alt="profile"
             width={36}
             height={36}
@@ -56,7 +56,7 @@ const DashboardPage = () => {
         {/* Section 2 */}
         <h2 className="text-lg font-bold text-blue-900">ข้อมูลส่วนบุคคล</h2>
 
-        <Link href="/profile">
+        <Link href="/front/user-history">
           <div className="flex items-center gap-4 p-4 border-2 text-blue-900 rounded-xl bg-white shadow-sm hover:bg-blue-50 transition cursor-pointer">
             <Image src="/grandmother.png" alt="user-info" width={48} height={48} />
             <span className="text-lg text-black font-medium">ข้อมูลผู้ใช้งาน</span>
