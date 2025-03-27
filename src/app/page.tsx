@@ -1,127 +1,171 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Loader2 } from 'lucide-react';  // For loading spinner icon (optional)
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { FiEye, FiEyeOff } from "react-icons/fi";
+import Link from "next/link";
 
-interface Booking {
-  booking_reference_number: string;
-  user_name: string;
-  department_name: string;
-  start_time: string;
-  end_time: string;
-  booking_date: string; // Added booking_date to the interface
-  status: 'pending' | 'confirmed' | 'cancelled';
-}
+const LoginPage = () => {
+  const router = useRouter();
+  const [citizenId, setCitizenId] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-// Function to format the date as dd/mm/yyyy in Thai Buddhist Era (B.E.)
-const formatBookingDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const day = date.getDate();
-  const month = date.getMonth() + 1; // Months are 0-indexed
-  const year = date.getFullYear() + 543; // Convert to Thai Buddhist Era (B.E.)
+  // Handle Citizen ID input (13 digits only)
+  const handleCitizenIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, "").slice(0, 13);
+    setCitizenId(value);
+  };
+// Handle Login submission
+const handleLogin = async () => {
+  if (citizenId.length < 13 || password.length < 6) {
+    alert("⚠ กรุณากรอกเลขบัตรประชาชน 13 หลักและรหัสผ่านอย่างน้อย 6 ตัว");
+    return;
+  }
 
-  return `${day}/${month}/${year}`;
+  setLoading(true);
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ citizenId, password }),
+    });
+
+    if (response.ok) {
+      alert("✅ เข้าสู่ระบบสำเร็จ!");
+      localStorage.setItem("citizenId", citizenId);
+
+      // ✅ ตรวจว่า password เป็นรหัส admin หรือไม่
+      if (password === "mchadmin2024") {
+        router.push("/backend/admin-booking");
+      } else {
+        router.push("/front/user-choose");
+      }
+    } else {
+      alert("❌ เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง");
+    }
+  } catch (error) {
+    console.error("เกิดข้อผิดพลาดในการเข้าสู่ระบบ:", error);
+    alert("❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+  }
+  setLoading(false);
 };
 
-const AdminSearchPage = () => {
-  const [bookingReferenceNumber, setBookingReferenceNumber] = useState('');
-  const [status, setStatus] = useState('');
-  const [bookingData, setBookingData] = useState<Booking | null>(null);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSearch = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/admin/seach?booking_reference_number=${bookingReferenceNumber}`);
-      if (!res.ok) {
-        throw new Error('Booking not found');
-      }
-      const data = await res.json();
-      setBookingData(data.booking);
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
-      setBookingData(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateStatus = async (newStatus: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/admin/seach', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bookingReferenceNumber,
-          status: newStatus,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to update status');
-      }
-
-      const data = await res.json();
-      setBookingData((prevData: any) => ({ ...prevData, status: newStatus }));
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-center mb-8">Admin Booking Search</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
+      {/* Hospital Logo */}
+      <Image
+        src="/24.png"
+        alt="โรงพยาบาลแม่จัน"
+        width={200}
+        height={80}
+        className="mb-12"
+        priority
+      />
 
-      <div className="mb-4 flex justify-center items-center space-x-4">
-        <Input
-          placeholder="Enter Booking Reference Number"
-          value={bookingReferenceNumber}
-          onChange={(e) => setBookingReferenceNumber(e.target.value)}
-          className="w-72"
-        />
-        <Button onClick={handleSearch} className="w-28">Search</Button>
+      {/* Login Card */}
+      <div className="w-full max-w-lg bg-white rounded-lg shadow-md p-10 border border-gray-200">
+        <h2 className="text-3xl font-bold text-blue-900 text-center mb-8">
+          เข้าสู่ระบบ
+        </h2>
+
+        {/* Citizen ID Input */}
+        <div className="mb-6">
+          <label className="block text-gray-800 text-xl font-medium mb-2">
+            เลขประจำตัวประชาชน
+          </label>
+          <input
+            type="text"
+            value={citizenId}
+            onChange={handleCitizenIdChange}
+            placeholder="กรอกเลขบัตรประชาชน 13 หลัก"
+            className="w-full p-4 text-xl text-black  border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            maxLength={13}
+          />
+        </div>
+
+        {/* Password Input */}
+        <div className="mb-8">
+          <label className="block text-gray-800 text-xl font-medium mb-2">
+            รหัสผ่าน
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="กรอกรหัสผ่าน"
+              className="w-full p-4 text-xl border text-black  border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all pr-12"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 text-2xl hover:text-blue-600 transition-colors"
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
+        </div>
+
+        {/* Login Button */}
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className={`w-full p-4 text-white text-xl font-semibold rounded-md bg-blue-700 hover:bg-blue-800 flex items-center justify-center transition-all ${
+            loading ? "opacity-70 cursor-not-allowed" : ""
+          }`}
+        >
+          {loading ? (
+            <>
+              <svg
+                className="animate-spin h-5 w-5 mr-3 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8h8a8 8 0 11-16 0z"
+                />
+              </svg>
+              กำลังเข้าสู่ระบบ...
+            </>
+          ) : (
+            "เข้าสู่ระบบ"
+          )}
+        </button>
+
+        {/* Signup Link */}
+        <div className="text-center mt-6">
+          <p className="text-gray-600 text-lg">
+            ยังไม่มีบัญชี?{" "}
+            <Link
+              href="/front/signup"
+              className="text-blue-700 font-medium hover:underline hover:text-blue-900 transition-colors"
+            >
+              สมัครสมาชิก
+            </Link>
+          </p>
+        </div>
       </div>
 
-      {isLoading && (
-        <div className="flex justify-center my-4">
-          <Loader2 className="animate-spin" size={30} />
-        </div>
-      )}
-
-      {error && <div className="text-red-500 text-center mt-4">{error}</div>}
-
-      {bookingData && (
-        <Card className="mt-8 shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Booking Details</h2>
-          <div>
-            <p className="font-semibold">Booking Reference: <span className="font-normal">{bookingData.booking_reference_number}</span></p>
-            <p className="font-semibold">User Name: <span className="font-normal">{bookingData.user_name}</span></p>
-            <p className="font-semibold">Department: <span className="font-normal">{bookingData.department_name}</span></p>
-            <p className="font-semibold">Booking Date: <span className="font-normal">{formatBookingDate(bookingData.booking_date)}</span></p> {/* Display formatted booking date */}
-            <p className="font-semibold">Booking Time: <span className="font-normal">{new Date(`1970-01-01T${bookingData.start_time}Z`).toLocaleTimeString()} - {new Date(`1970-01-01T${bookingData.end_time}Z`).toLocaleTimeString()}</span></p> {/* Format and display start/end times */}
-            <p className="font-semibold">Status: <span className="font-normal">{bookingData.status}</span></p>
-          </div>
-
-          <div className="mt-6 flex justify-center space-x-4">
-            <Button onClick={() => handleUpdateStatus('pending')} className="w-28">Set as Pending</Button>
-            <Button onClick={() => handleUpdateStatus('confirmed')} className="w-28">Set as Confirmed</Button>
-            <Button onClick={() => handleUpdateStatus('cancelled')} className="w-28">Set as Cancelled</Button>
-          </div>
-        </Card>
-      )}
+      {/* Footer */}
+      <footer className="mt-10 text-gray-500 text-sm">
+        © 2025 โรงพยาบาลแม่จัน | All Rights Reserved
+      </footer>
     </div>
   );
 };
 
-export default AdminSearchPage;
+export default LoginPage;

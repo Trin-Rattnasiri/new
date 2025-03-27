@@ -1,4 +1,6 @@
 import React from 'react';
+import "../globals.css"; // ✅ ให้แน่ใจว่า path ถูกต้อง
+
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   return (

@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost
--- Generation Time: Mar 25, 2025 at 12:03 PM
--- Server version: 10.4.28-MariaDB
--- PHP Version: 8.2.4
+-- Host: 127.0.0.1
+-- Generation Time: Mar 26, 2025 at 05:13 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -140,6 +140,27 @@ INSERT INTO `slots` (`id`, `department_id`, `slot_date`, `available_seats`, `sta
 (20, 12, '1234-02-01', 1, '22:22:00', '23:23:00'),
 (21, 12, '5432-02-01', 5, '11:11:00', '22:22:00');
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user`
+--
+
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL,
+  `citizenId` varchar(191) DEFAULT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `password` varchar(255) DEFAULT NULL,
+  `createdAt` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `user`
+--
+
+INSERT INTO `user` (`id`, `citizenId`, `phone`, `password`, `createdAt`) VALUES
+(2, '1909802814890', '0641815842', '$2b$10$IbT1zm74nrGhb7fpv/UE.O9268N6cXU2Ua92onPSXcj474kpZd6n6', '2025-03-26 21:54:39');
+
 --
 -- Indexes for dumped tables
 --
@@ -166,6 +187,13 @@ ALTER TABLE `slots`
   ADD KEY `department_id` (`department_id`);
 
 --
+-- Indexes for table `user`
+--
+ALTER TABLE `user`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `citizenId` (`citizenId`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -188,21 +216,10 @@ ALTER TABLE `slots`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
--- Constraints for dumped tables
+-- AUTO_INCREMENT for table `user`
 --
-
---
--- Constraints for table `bookings`
---
-ALTER TABLE `bookings`
-  ADD CONSTRAINT `bookings_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`),
-  ADD CONSTRAINT `bookings_ibfk_2` FOREIGN KEY (`slot_id`) REFERENCES `slots` (`id`);
-
---
--- Constraints for table `slots`
---
-ALTER TABLE `slots`
-  ADD CONSTRAINT `slots_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`);
+ALTER TABLE `user`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
