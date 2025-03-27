@@ -119,7 +119,7 @@ const AppointmentPage = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8 md:py-12">
       {/* Header */}
       <div className="w-full max-w-2xl flex items-center justify-between mb-8">
-        <Link href="/login" className="text-gray-700 hover:text-blue-800 transition-all duration-300">
+        <Link href="/front/user-choose" className="text-gray-700 hover:text-blue-800 transition-all duration-300">
           <FiChevronLeft className="text-3xl md:text-4xl" />
         </Link>
         <h2 className="text-2xl md:text-3xl font-semibold text-blue-900">
