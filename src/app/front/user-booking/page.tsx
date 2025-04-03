@@ -1,92 +1,82 @@
 'use client';
-
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from 'react';
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, parseISO } from "date-fns";
+import { th } from 'date-fns/locale';
 
 const Page = () => {
-  const [departments, setDepartments] = useState<any[]>([]); // สำหรับแผนกทั้งหมด
-  const [dates, setDates] = useState<any[]>([]); // สำหรับวันที่ที่สามารถเลือกได้
-  const [slots, setSlots] = useState<any[]>([]); // สำหรับเวลาที่สามารถจองได้
-  const [userName, setUserName] = useState<string>(''); // ชื่อผู้จอง
-  const [phoneNumber, setPhoneNumber] = useState<string>(''); // เบอร์โทร
-  const [idCardNumber, setIdCardNumber] = useState<string>(''); // บัตรประชาชน
-  const [selectedDepartment, setSelectedDepartment] = useState<string>(''); // แผนกที่เลือก
-  const [selectedDate, setSelectedDate] = useState<string>(''); // วันที่เลือก
-  const [selectedSlot, setSelectedSlot] = useState<string>(''); // เวลาที่เลือก
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [dates, setDates] = useState<any[]>([]);
+  const [slots, setSlots] = useState<any[]>([]);
+  const [userName, setUserName] = useState<string>('');
+  const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [idCardNumber, setIdCardNumber] = useState<string>('');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedSlot, setSelectedSlot] = useState<string>('');
 
   useEffect(() => {
     async function fetchDepartments() {
-      const response = await fetch('/api/bookings'); // คุณอาจต้องเปลี่ยน URL ให้เหมาะสม
+      const response = await fetch('/api/bookings');
       const data = await response.json();
       setDepartments(data);
     }
     fetchDepartments();
   }, []);
 
-  // ฟังก์ชันสำหรับแปลงวันที่เป็นรูปแบบ YYYY-MM-DD
-  const formatDate = (dateString: string): string => {
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        return dateString; // ถ้าแปลงไม่ได้ ส่งค่าเดิมกลับไป
-      }
-
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-
-      return `${year}-${month}-${day}`;
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return dateString; // ถ้าเกิด error ส่งค่าเดิมกลับไป
-    }
+  const formatDate = (date: Date | undefined): string => {
+    if (!date) return '';
+    return format(date, 'dd/MM/yyyy', { locale: th });
   };
 
-  // ดึงข้อมูลวันที่ที่สามารถเลือกได้เมื่อเลือกแผนก
   const fetchDates = async (departmentId: string) => {
     const response = await fetch(`/api/bookings?departmentId=${departmentId}`);
     const data = await response.json();
     setDates(data);
   };
 
-  // ดึงข้อมูลเวลาที่สามารถจองได้เมื่อเลือกวันที่
-  const fetchSlots = async (departmentId: string, date: string) => {
-    const formattedDate = formatDate(date); // แปลงวันที่ก่อนส่งไป API
+  const fetchSlots = async (departmentId: string, date: Date | undefined) => {
+    if (!date) return;
+    const formattedDate = format(date, 'yyyy-MM-dd');
     console.log('Sending date to API:', formattedDate);
 
     const response = await fetch(`/api/bookings/slots?departmentId=${departmentId}&date=${formattedDate}`);
     const data = await response.json();
-    setSlots(data);
+    if (Array.isArray(data)) {
+      setSlots(data);
+    } else {
+      console.error('Data from API is not an array:', data);
+      setSlots([]);
+    }
   };
 
   const handleDepartmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const departmentId = e.target.value;
     setSelectedDepartment(departmentId);
-    setSelectedDate('');
+    setSelectedDate(undefined);
     setSelectedSlot('');
     if (departmentId) {
-      fetchDates(departmentId); // ดึงวันที่ที่สามารถเลือกได้เมื่อเลือกแผนก
+      fetchDates(departmentId);
     }
   };
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const date = e.target.value;
+  const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);
     setSelectedSlot('');
     if (selectedDepartment && date) {
-      fetchSlots(selectedDepartment, date); // ดึงเวลาเมื่อเลือกวันที่
+      fetchSlots(selectedDepartment, date);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
     if (!userName || !selectedDepartment || !selectedSlot || !selectedDate || !phoneNumber || !idCardNumber) {
       alert('กรุณากรอกข้อมูลให้ครบ');
       return;
     }
-  
-    const response = await fetch('/api/admin/que', { // ใช้ URL ใหม่ของ API ที่สร้างขึ้น
+    const response = await fetch('/api/admin/que', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -95,73 +85,37 @@ const Page = () => {
         user_name: userName,
         department_id: selectedDepartment,
         slot_id: selectedSlot,
-        phone_number: phoneNumber, // ส่งเบอร์โทร
-        id_card_number: idCardNumber, // ส่งบัตรประชาชน
+        phone_number: phoneNumber,
+        id_card_number: idCardNumber,
       }),
     });
-  
     const result = await response.json();
-  
     if (result.message === 'จองคิวสำเร็จ') {
       alert(result.message);
-      window.location.reload();  // รีเฟรชหน้าเมื่อจองสำเร็จ
+      window.location.reload();
     } else {
       alert(result.message);
     }
   };
-  
+
+  // สร้าง array ของวันที่ที่ไม่สามารถจองได้ (สมมติว่าเป็นวันที่ในอดีต)
+  const disabledDates = dates.filter(date => new Date(date.slot_date) < new Date()).map(date => new Date(date.slot_date));
+
+  // สร้าง array ของวันที่ที่สามารถจองได้
+  const availableDates = dates.map(date => parseISO(date.slot_date));
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-semibold text-center mb-6">ระบบจองคิวโรงพยาบาล</h1>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ฟิลด์ชื่อผู้จอง */}
+    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
+      <h1 className="text-xl font-semibold text-center mb-4">นัดหมายออนไลน์</h1>
+      <p className="text-center mb-4">กรุณาระบุข้อมูลให้ครบถ้วน เพื่อทำการจองคิว</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="userName">ชื่อผู้จอง:</label>
-          <input
-            id="userName"
-            type="text"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          />
-        </div>
-
-        {/* ฟิลด์เบอร์โทร */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="phoneNumber">เบอร์โทร:</label>
-          <input
-            id="phoneNumber"
-            type="text"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          />
-        </div>
-
-        {/* ฟิลด์บัตรประชาชน */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="idCardNumber">บัตรประชาชน:</label>
-          <input
-            id="idCardNumber"
-            type="text"
-            value={idCardNumber}
-            onChange={(e) => setIdCardNumber(e.target.value)}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          />
-        </div>
-
-        {/* ฟิลด์เลือกแผนก */}
-        <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="department">เลือกแผนก:</label>
+          <label className="text-sm font-medium mb-1" htmlFor="department">แผนก</label>
           <select
             id="department"
             value={selectedDepartment}
             onChange={handleDepartmentChange}
-            className="p-3 border border-gray-300 rounded-md"
+            className="p-2 border border-gray-300 rounded-md"
             required
           >
             <option value="">เลือกแผนก</option>
@@ -173,49 +127,92 @@ const Page = () => {
           </select>
         </div>
 
-        {/* ฟิลด์เลือกวันที่ */}
         <div className="flex flex-col">
-          <label className="text-lg font-medium mb-2" htmlFor="date">เลือกวันที่:</label>
-          <select
-            id="date"
-            value={selectedDate}
-            onChange={handleDateChange}
-            className="p-3 border border-gray-300 rounded-md"
-            required
-          >
-            <option value="">เลือกวันที่</option>
-            {dates.map((date) => {
-              const displayDate = formatDate(date.slot_date);
-              return (
-                <option key={date.slot_date} value={date.slot_date}>
-                  {displayDate}
-                </option>
-              );
-            })}
-          </select>
+          <label className="text-sm font-medium mb-1" htmlFor="date">วันที่</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={formatDate(selectedDate) ? "w-full justify-start text-left font-normal" : "w-full justify-start text-left font-normal text-muted-foreground"}
+              >
+                {formatDate(selectedDate) ? formatDate(selectedDate) : <span>วว / ดด / ปป</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateChange}
+                disabled={disabledDates}
+                locale={th}
+                modifiers={{
+                  available: availableDates,
+                  disabled: disabledDates
+                }}
+                modifiersStyles={{
+                  available: { color: 'blue' },
+                  disabled: { color: '#d1d5db', pointerEvents: 'none' }, // สีเทาสำหรับวันที่ที่ไม่สามารถจองได้
+                }}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
-       {/* ฟิลด์เลือกเวลา */}
-<div className="flex flex-col">
-  <label className="text-lg font-medium mb-2" htmlFor="slot">เลือกเวลา:</label>
-  <select
-    id="slot"
-    value={selectedSlot}
-    onChange={(e) => setSelectedSlot(e.target.value)}
-    className="p-3 border border-gray-300 rounded-md"
-    required
-  >
-    <option value="">เลือกเวลา</option>
-    {slots.map((slot) => (
-      <option key={slot.id} value={slot.id}>
-        {`${slot.start_time} - ${slot.end_time}`} (ที่นั่งว่าง: {slot.available_seats})
-      </option>
-    ))}
-  </select>
-</div>
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1" htmlFor="slot">เวลา</label>
+          <div className="flex flex-wrap gap-2">
+            {Array.isArray(slots) && slots.map((slot) => (
+              <Button
+                key={slot.id}
+                onClick={() => setSelectedSlot(slot.id)}
+                className={`text-sm ${selectedSlot === slot.id ? 'bg-blue-600 text-white' : 'border border-gray-300'}`}
+              >
+                {`${slot.start_time} - ${slot.end_time}`}
+              </Button>
+            ))}
+          </div>
+        </div>
 
+        {/* ฟิลด์ชื่อผู้จอง */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1" htmlFor="userName">ชื่อผู้จอง:</label>
+          <input
+            id="userName"
+            type="text"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            className="p-2 border border-gray-300 rounded-md"
+            required
+          />
+        </div>
 
-        <Button className="w-full py-3 mt-4 bg-blue-600 text-white rounded-md hover:bg-blue-700" type="submit">จองคิว</Button>
+        {/* ฟิลด์เบอร์โทร */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1" htmlFor="phoneNumber">เบอร์โทร:</label>
+          <input
+            id="phoneNumber"
+            type="text"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            className="p-2 border border-gray-300 rounded-md"
+            required
+          />
+        </div>
+
+        {/* ฟิลด์บัตรประชาชน */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1" htmlFor="idCardNumber">บัตรประชาชน:</label>
+          <input
+            id="idCardNumber"
+            type="text"
+            value={idCardNumber}
+            onChange={(e) => setIdCardNumber(e.target.value)}
+            className="p-2 border border-gray-300 rounded-md"
+            required
+          />
+        </div>
+
+        <Button className="w-full py-2 bg-blue-600 text-white rounded-md" type="submit">นัดหมายออนไลน์</Button>
       </form>
     </div>
   );

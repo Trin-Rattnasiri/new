@@ -39,7 +39,7 @@ const AdminSearchPage = () => {
         if (!res.ok) throw new Error('Failed to fetch departments');
         const data = await res.json();
         setDepartments(data.departments);
-      } catch (err: any) {  // Cast the error to 'any' to access the 'message'
+      } catch (err: any) {
         setError(err.message);
       } finally {
         setIsLoading(false);
@@ -75,8 +75,8 @@ const AdminSearchPage = () => {
     setSelectedDate(date);
     setIsLoading(true);
     try {
-      // Send the date as 'YYYY-MM-DD' format (no time)
-      const formattedDate = date.split('T')[0];  // Extracts '2025-03-24'
+      // Format the selected date to 'YYYY-MM-DD' (no time part)
+      const formattedDate = new Date(date).toISOString().split('T')[0]; // Extracts '2025-03-24'
 
       // Fetch bookings for the selected department and formatted date
       const res = await fetch(`/api/admin/view_booking/bookings?department_id=${selectedDepartment}&selected_date=${formattedDate}`);

@@ -54,12 +54,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'An error occurred while fetching available dates.' }, { status: 500 });
   }
 }
-
 // Handler for getting bookings for a specific date
 export async function GET_BOOKINGS(request: Request) {
   const url = new URL(request.url);
   const departmentId = url.searchParams.get('department_id');
-  const selectedDate = url.searchParams.get('selected_date');
+  let selectedDate = url.searchParams.get('selected_date');
 
   if (!departmentId || !selectedDate) {
     return NextResponse.json({ error: 'Department ID and selected date are required.' }, { status: 400 });
@@ -68,8 +67,9 @@ export async function GET_BOOKINGS(request: Request) {
   try {
     const connection = await getConnection();
 
-    // Ensure that the date is in 'YYYY-MM-DD' format (no time)
-    const formattedDate = selectedDate.split('T')[0]; // Extracts '2025-03-24'
+    // Clean up the selected_date to ensure it's in the 'YYYY-MM-DD' format
+    selectedDate = selectedDate.trim(); // Remove any leading or trailing spaces
+    const formattedDate = selectedDate.split('T')[0]; // Ensure it's 'YYYY-MM-DD'
 
     // SQL Query: Get bookings for the specific date
     const [bookings] = await connection.execute<any[]>(

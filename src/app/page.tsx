@@ -1,127 +1,125 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Loader2 } from 'lucide-react';  // For loading spinner icon (optional)
+import { useState, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-interface Booking {
-  booking_reference_number: string;
-  user_name: string;
-  department_name: string;
-  start_time: string;
-  end_time: string;
-  booking_date: string; // Added booking_date to the interface
-  status: 'pending' | 'confirmed' | 'cancelled';
+interface UserData {
+  username: string;
+  password: string;
 }
 
-// Function to format the date as dd/mm/yyyy in Thai Buddhist Era (B.E.)
-const formatBookingDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const day = date.getDate();
-  const month = date.getMonth() + 1; // Months are 0-indexed
-  const year = date.getFullYear() + 543; // Convert to Thai Buddhist Era (B.E.)
+interface LoginResponse {
+  token: string;
+  user: object;
+  message?: string;  // เพิ่ม message เพื่อรองรับข้อผิดพลาด
+}
 
-  return `${day}/${month}/${year}`;
-};
+export default function Login() {
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const router = useRouter();
 
-const AdminSearchPage = () => {
-  const [bookingReferenceNumber, setBookingReferenceNumber] = useState('');
-  const [status, setStatus] = useState('');
-  const [bookingData, setBookingData] = useState<Booking | null>(null);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  const handleSearch = async () => {
-    setIsLoading(true);
     try {
-      const res = await fetch(`/api/admin/seach?booking_reference_number=${bookingReferenceNumber}`);
-      if (!res.ok) {
-        throw new Error('Booking not found');
-      }
-      const data = await res.json();
-      setBookingData(data.booking);
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
-      setBookingData(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateStatus = async (newStatus: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/admin/seach', {
-        method: 'PATCH',
+      const response = await fetch('/api/user/login', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          bookingReferenceNumber,
-          status: newStatus,
-        }),
+        body: JSON.stringify({ username, password }),
       });
 
-      if (!res.ok) {
-        throw new Error('Failed to update status');
+      const data: LoginResponse = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
       }
 
-      const data = await res.json();
-      setBookingData((prevData: any) => ({ ...prevData, status: newStatus }));
-      setError('');
-    } catch (err: any) {
-      setError(err.message);
+      // เก็บ token ไว้ใน localStorage
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // นำทางไปยังหน้าหลักหลังจากเข้าสู่ระบบสำเร็จ
+      router.push('/front/user-booking');
+    } catch (error: any) {
+      setError(error.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-center mb-8">Admin Booking Search</h1>
-
-      <div className="mb-4 flex justify-center items-center space-x-4">
-        <Input
-          placeholder="Enter Booking Reference Number"
-          value={bookingReferenceNumber}
-          onChange={(e) => setBookingReferenceNumber(e.target.value)}
-          className="w-72"
-        />
-        <Button onClick={handleSearch} className="w-28">Search</Button>
-      </div>
-
-      {isLoading && (
-        <div className="flex justify-center my-4">
-          <Loader2 className="animate-spin" size={30} />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-full max-w-md p-8 space-y-8 bg-white shadow-lg rounded-lg">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">เข้าสู่ระบบ</h1>
+          <p className="mt-2 text-gray-600">กรอกข้อมูลเพื่อเข้าสู่ระบบ</p>
         </div>
-      )}
 
-      {error && <div className="text-red-500 text-center mt-4">{error}</div>}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
 
-      {bookingData && (
-        <Card className="mt-8 shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Booking Details</h2>
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <p className="font-semibold">Booking Reference: <span className="font-normal">{bookingData.booking_reference_number}</span></p>
-            <p className="font-semibold">User Name: <span className="font-normal">{bookingData.user_name}</span></p>
-            <p className="font-semibold">Department: <span className="font-normal">{bookingData.department_name}</span></p>
-            <p className="font-semibold">Booking Date: <span className="font-normal">{formatBookingDate(bookingData.booking_date)}</span></p> {/* Display formatted booking date */}
-            <p className="font-semibold">Booking Time: <span className="font-normal">{new Date(`1970-01-01T${bookingData.start_time}Z`).toLocaleTimeString()} - {new Date(`1970-01-01T${bookingData.end_time}Z`).toLocaleTimeString()}</span></p> {/* Format and display start/end times */}
-            <p className="font-semibold">Status: <span className="font-normal">{bookingData.status}</span></p>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              ชื่อผู้ใช้
+            </label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            />
           </div>
 
-          <div className="mt-6 flex justify-center space-x-4">
-            <Button onClick={() => handleUpdateStatus('pending')} className="w-28">Set as Pending</Button>
-            <Button onClick={() => handleUpdateStatus('confirmed')} className="w-28">Set as Confirmed</Button>
-            <Button onClick={() => handleUpdateStatus('cancelled')} className="w-28">Set as Cancelled</Button>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              รหัสผ่าน
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            />
           </div>
-        </Card>
-      )}
+
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              {loading ? 'กำลังดำเนินการ...' : 'เข้าสู่ระบบ'}
+            </button>
+          </div>
+        </form>
+
+        <div className="text-center mt-4">
+          <p className="text-sm text-gray-600">
+            ยังไม่มีบัญชี?{' '}
+            <Link href="front/user-regis" className="font-medium text-indigo-600 hover:text-indigo-500">
+              สมัครสมาชิก
+            </Link>
+          </p>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default AdminSearchPage;
+}
