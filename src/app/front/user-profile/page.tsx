@@ -22,7 +22,8 @@ export default function HomePage() {
     const id = localStorage.getItem('citizenId')
     if (id) {
       setCitizenId(id)
-      fetch(`/api/user?citizenId=${id}`)
+      fetch(`/api/user/profile?citizenId=${id}`)
+
         .then((res) => res.json())
         .then((data) => setUserInfo(data))
         .catch((err) => console.error("❌ Error loading user info:", err))
@@ -74,7 +75,7 @@ export default function HomePage() {
         <div className="flex justify-around mt-6 gap-4">
           {/* นัดหมายออนไลน์ */}
           <button
-            onClick={() => router.push('/appointment')}
+            onClick={() => router.push('/front/user-booking')}
             className="flex flex-col items-center bg-white p-4 rounded-xl shadow border border-blue-200 hover:bg-blue-50 transition w-32"
           >
             <div className="text-blue-600 text-3xl">📅</div>
@@ -83,7 +84,7 @@ export default function HomePage() {
 
           {/* ประวัติการรักษา */}
           <button
-            onClick={() => router.push('/history')}
+            onClick={() => router.push('/front/user-history')}
             className="flex flex-col items-center bg-white p-4 rounded-xl shadow border border-blue-200 hover:bg-blue-50 transition w-32"
           >
             <div className="text-blue-600 text-3xl">📨</div>

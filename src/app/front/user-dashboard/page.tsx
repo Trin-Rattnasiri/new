@@ -17,7 +17,7 @@ const DashboardPage = () => {
     const confirmLogout = window.confirm("คุณต้องการออกจากระบบใช่หรือไม่?")
     if (confirmLogout) {
       localStorage.clear()
-      router.push("/")
+      router.push("/backend/admin-dashboard")
     }
   }
 
