@@ -97,6 +97,7 @@ export async function POST(req: Request) {
         bookingReferenceNumber: bookingReferenceNumber,
         bookingDate: bookingDate,
         timeSlot: timeSlotMessage,
+        id: bookingId // ✅ เพิ่มตรงนี้
       }, { status: 201 });
     } else {
       return NextResponse.json({ message: 'ไม่สามารถจองคิวได้' }, { status: 400 });

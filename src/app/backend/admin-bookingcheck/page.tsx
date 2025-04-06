@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation" // เพิ่ม useRouter
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -22,9 +23,8 @@ interface Booking {
 const formatBookingDate = (dateString: string) => {
   const date = new Date(dateString)
   const day = date.getDate().toString().padStart(2, "0")
-  const month = (date.getMonth() + 1).toString().padStart(2, "0") // Months are 0-indexed
-  const year = date.getFullYear() + 543 // Convert to Thai Buddhist Era (B.E.)
-
+  const month = (date.getMonth() + 1).toString().padStart(2, "0")
+  const year = date.getFullYear() + 543
   return `${day}/${month}/${year}`
 }
 
@@ -34,15 +34,15 @@ const formatTime = (timeString: string) => {
     return new Date(`1970-01-01T${timeString}Z`).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
-      hour12: false, // ใช้ 24 ชั่วโมง (ไม่มี AM/PM)
-    });
+      hour12: false,
+    })
   } catch (e) {
-    return timeString;
+    return timeString
   }
 }
 
-
 const AdminSearchPage = () => {
+  const router = useRouter() // เพิ่ม router
   const [bookingReferenceNumber, setBookingReferenceNumber] = useState("")
   const [bookingData, setBookingData] = useState<Booking | null>(null)
   const [error, setError] = useState("")
@@ -92,7 +92,13 @@ const AdminSearchPage = () => {
       }
 
       const data = await res.json()
-      setBookingData((prevData) => (prevData ? { ...prevData, status: newStatus as any } : null))
+      const updatedBooking = { ...bookingData, status: newStatus as any }
+      setBookingData(updatedBooking)
+
+      // ถ้าสถานะเป็น "confirmed" ให้ไปยังหน้าใบนัด
+      if (newStatus === "confirmed") {
+        router.push(`/admin/appointment-slip?booking_reference_number=${bookingReferenceNumber}`)
+      }
     } catch (err: any) {
       setError(err.message || "Failed to update status")
     } finally {
@@ -143,7 +149,7 @@ const AdminSearchPage = () => {
                 placeholder="Enter Booking Reference Number"
                 value={bookingReferenceNumber}
                 onChange={(e) => setBookingReferenceNumber(e.target.value)}
-                className="pl-0" // Removed padding for icon
+                className="pl-0"
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               />
             </div>

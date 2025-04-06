@@ -1,12 +1,15 @@
 'use client';
+
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from 'react';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parseISO } from "date-fns";
 import { th } from 'date-fns/locale';
+import { useRouter } from "next/navigation";
 
 const Page = () => {
+  const router = useRouter();
   const [departments, setDepartments] = useState<any[]>([]);
   const [dates, setDates] = useState<any[]>([]);
   const [slots, setSlots] = useState<any[]>([]);
@@ -92,16 +95,16 @@ const Page = () => {
     const result = await response.json();
     if (result.message === 'จองคิวสำเร็จ') {
       alert(result.message);
-      window.location.reload();
-    } else {
-      alert(result.message);
+      if (result.bookingReferenceNumber) {
+        router.push(`/appointment/${result.bookingReferenceNumber}`); // ✅ พาไปหน้ารายละเอียด
+      } else {
+        window.location.reload(); // fallback
+      }
     }
+    
   };
 
-  // สร้าง array ของวันที่ที่ไม่สามารถจองได้ (สมมติว่าเป็นวันที่ในอดีต)
   const disabledDates = dates.filter(date => new Date(date.slot_date) < new Date()).map(date => new Date(date.slot_date));
-
-  // สร้าง array ของวันที่ที่สามารถจองได้
   const availableDates = dates.map(date => parseISO(date.slot_date));
 
   return (
@@ -151,7 +154,7 @@ const Page = () => {
                 }}
                 modifiersStyles={{
                   available: { color: 'blue' },
-                  disabled: { color: '#d1d5db', pointerEvents: 'none' }, // สีเทาสำหรับวันที่ที่ไม่สามารถจองได้
+                  disabled: { color: '#d1d5db', pointerEvents: 'none' },
                 }}
               />
             </PopoverContent>
@@ -173,7 +176,6 @@ const Page = () => {
           </div>
         </div>
 
-        {/* ฟิลด์ชื่อผู้จอง */}
         <div className="flex flex-col">
           <label className="text-sm font-medium mb-1" htmlFor="userName">ชื่อผู้จอง:</label>
           <input
@@ -186,7 +188,6 @@ const Page = () => {
           />
         </div>
 
-        {/* ฟิลด์เบอร์โทร */}
         <div className="flex flex-col">
           <label className="text-sm font-medium mb-1" htmlFor="phoneNumber">เบอร์โทร:</label>
           <input
@@ -199,7 +200,6 @@ const Page = () => {
           />
         </div>
 
-        {/* ฟิลด์บัตรประชาชน */}
         <div className="flex flex-col">
           <label className="text-sm font-medium mb-1" htmlFor="idCardNumber">บัตรประชาชน:</label>
           <input

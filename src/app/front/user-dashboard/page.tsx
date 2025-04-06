@@ -82,7 +82,7 @@ const DashboardPage = () => {
         </div>
 
         <div className="space-y-4">
-          <Link href="/front/user-appointment" className="block">
+          <Link href="/front/user-booking" className="block">
             <Card className="border border-slate-200 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 rounded-xl overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex items-center sm:flex-row flex-col">
