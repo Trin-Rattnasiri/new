@@ -167,7 +167,7 @@ const Page = () => {
                 onClick={() => setSelectedSlot(slot.id)}
                 className={`text-sm ${selectedSlot === slot.id ? 'bg-blue-600 text-white' : 'border border-gray-300'}`}
               >
-                {`${slot.start_time} - ${slot.end_time}`}
+                {`${slot.start_time} - ${slot.end_time} (จำนวนที่ว่าง: ${slot.available_seats})`}
               </Button>
             ))}
           </div>
