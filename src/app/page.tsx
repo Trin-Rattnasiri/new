@@ -28,7 +28,7 @@ const LoginPage = () => {
 
     setLoading(true);
     try {
-      const response = await fetch("/api/login", {
+      const response = await fetch("/api/user/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ citizenId, password }),
@@ -37,7 +37,7 @@ const LoginPage = () => {
       if (response.ok) {
         alert("✅ เข้าสู่ระบบสำเร็จ!");
         localStorage.setItem("citizenId", citizenId);
-        router.push("/login");
+        router.push("/front/user-dashboard");
       } else {
         alert("❌ เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง");
       }

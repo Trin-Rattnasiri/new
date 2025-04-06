@@ -1,94 +1,64 @@
-import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { NextResponse } from "next/server";
+import mysql from "mysql2/promise";
+import bcrypt from "bcrypt";
 
-interface UserRow {
-  id: number;
-  username: string;
-  password: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-}
+// ✅ ตั้งค่าการเชื่อมต่อ MySQL
+const pool = mysql.createPool({
+  host: "localhost",
+  user: "root",
+  password: "",
+  database: "hospital_booking", 
+  waitForConnections: true,
+  connectionLimit: 10,
+});
 
-const getConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-  });
-};
-
-export async function POST(request: NextRequest) {
+// ✅ POST: ล็อกอิน
+export async function POST(req: Request) {
   try {
-    const { username, password } = await request.json();
+    const { citizenId, password } = await req.json();
+    console.log("📌 Data received from frontend:", { citizenId, password });
 
-    // ตรวจสอบข้อมูลที่รับมา
-    if (!username || !password) {
-      return NextResponse.json(
-        { success: false, message: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' },
-        { status: 400 }
-      );
+    if (!citizenId || !password) {
+      console.error("❌ Missing required fields");
+      return NextResponse.json({ error: "กรุณากรอกข้อมูลให้ครบ" }, { status: 400 });
     }
 
-    const connection = await getConnection();
-
-    // ค้นหาผู้ใช้ในฐานข้อมูล
+    const connection = await pool.getConnection();
+    console.log("🔍 Checking user in database...");
+    
     const [rows] = await connection.execute(
-      'SELECT * FROM users WHERE username = ?',
-      [username]
+      "SELECT * FROM user WHERE citizenId = ?",
+      [citizenId]
     );
-    await connection.end();
 
-    // แปลง rows เป็น array
-    const users = rows as UserRow[];
+    connection.release();
 
-    // ตรวจสอบว่ามีผู้ใช้นี้ในระบบหรือไม่
+    const users = rows as any[];
     if (users.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' },
-        { status: 401 }
-      );
+      console.error("❌ User not found!");
+      return NextResponse.json({ error: "เลขบัตรประชาชนไม่มีอยู่ในระบบ" }, { status: 404 });
     }
 
     const user = users[0];
+    console.log("🔐 Checking password...");
 
-    // ตรวจสอบรหัสผ่าน
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' },
-        { status: 401 }
-      );
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      console.error("❌ Incorrect password!");
+      return NextResponse.json({ error: "รหัสผ่านไม่ถูกต้อง" }, { status: 401 });
     }
 
-    // สร้าง JWT Token
-    const token = jwt.sign(
-      { userId: user.id, username: user.username },
-      process.env.JWT_SECRET || 'fallback-secret-key',
-      { expiresIn: '1d' }
-    );
+    console.log("✅ Login successful!");
+    
+    // ✅ เพิ่ม citizenId ใน response เพื่อให้ frontend ใช้
+    return NextResponse.json({ 
+      message: "เข้าสู่ระบบสำเร็จ!", 
+      citizenId: user.citizenId 
+    }, { status: 200 });
 
-    // ส่งข้อมูลกลับไปพร้อม Token
-    return NextResponse.json({
-      success: true,
-      message: 'เข้าสู่ระบบสำเร็จ',
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-      },
-      token,
-    });
   } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { success: false, message: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' },
-      { status: 500 }
-    );
+    console.error("🚨 Login Error:", error);
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" }, { status: 500 });
   }
 }
+
