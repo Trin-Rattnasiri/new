@@ -1,167 +1,166 @@
-'use client';
+"use client";
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
-import Image from 'next/image';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { FiEye, FiEyeOff } from "react-icons/fi";
+import Link from "next/link";
 
-interface UserData {
-  username: string;
-  password: string;
-}
-
-interface LoginResponse {
-  token: string;
-  user: object;
-  message?: string;
-}
-
-export default function Login() {
-  const [username, setUsername] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
+const LoginPage = () => {
   const router = useRouter();
+  const [citizenId, setCitizenId] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
+  // Handle Citizen ID input (13 digits only)
+  const handleCitizenIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, "").slice(0, 13);
+    setCitizenId(value);
+  };
+
+  // Handle Login submission
+  const handleLogin = async () => {
+    if (citizenId.length < 13 || password.length < 6) {
+      alert("⚠ กรุณากรอกเลขบัตรประชาชน 13 หลักและรหัสผ่านอย่างน้อย 6 ตัว");
+      return;
+    }
+
     setLoading(true);
-
     try {
-      const response = await fetch('/api/user/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ citizenId, password }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+      if (response.ok) {
+        alert("✅ เข้าสู่ระบบสำเร็จ!");
+        localStorage.setItem("citizenId", citizenId);
+        router.push("/login");
+      } else {
+        alert("❌ เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง");
       }
-
-      const data: LoginResponse = await response.json();
-
-      if (!data) {
-        throw new Error('ไม่สามารถรับข้อมูลจากเซิร์ฟเวอร์ได้');
-      }
-
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      router.push('/front/user-booking');
-    } catch (error: any) {
-      setError(error.message || 'เกิดข้อผิดพลาดที่ไม่รู้จัก');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error("เกิดข้อผิดพลาดในการเข้าสู่ระบบ:", error);
+      alert("❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
     }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" 
-      style={{ 
-        background: 'linear-gradient(135deg, #1E40AF 0%, #3B82F6 50%, #E53E3E 100%)' 
-      }}>
-      
-      {/* Background wave effect */}
-      <div className="absolute bottom-0 left-0 w-full">
-        <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24">
-          <path 
-            d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" 
-            fill="rgba(255,255,255,0.1)" 
-          />
-        </svg>
-      </div>
-      
-      <div className="w-full max-w-md md:max-w-2xl lg:max-w-4xl flex bg-white rounded-lg shadow-xl overflow-hidden z-10">
-        {/* Left side - Login form */}
-        <div className="w-full p-6 md:p-8">
-          <CardHeader className="space-y-1">
-            <Image
-              src="/logo.png"
-              alt="โลโก้โรงพยาบาลแม่จัน"
-              width={150}
-              height={150}
-              className="mx-auto"
-            />
-            <CardTitle className="text-2xl font-semibold text-center text-gray-800">
-              เข้าสู่ระบบ
-            </CardTitle>
-            <p className="text-center text-gray-600">กรอกข้อมูลเพื่อเข้าสู่ระบบ</p>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>เกิดข้อผิดพลาด!</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="username">ชื่อผู้ใช้</Label>
-                <Input
-                  id="username"
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
-                  className="rounded-lg border-blue-200 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password">รหัสผ่าน</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  className="rounded-lg border-blue-200 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input type="checkbox" id="rememberMe" className="mr-2 accent-blue-600" />
-                  <Label htmlFor="rememberMe" className="text-sm text-gray-600">จดจำฉัน</Label>
-                </div>
-                <Link href="#" className="text-sm text-blue-700 hover:text-blue-500">ลืมรหัสผ่าน?</Link>
-              </div>
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full font-medium"
-                style={{ 
-                  background: 'linear-gradient(to right, #E53E3E, #1E40AF)',
-                  color: 'white',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                }}
-              >
-                {loading ? 'กำลังดำเนินการ...' : 'เข้าสู่ระบบ'}
-              </Button>
-            </form>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
+      {/* Hospital Logo */}
+      <Image
+        src="/24.png"
+        alt="โรงพยาบาลแม่จัน"
+        width={200}
+        height={80}
+        className="mb-12"
+        priority
+      />
 
-            <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm mt-8 text-center">
-              <p className="mb-4">ยังไม่มีบัญชีผู้ใช้งาน?</p>
-              <Link href="user-regis">
-                <Button className="bg-white text-blue-800 hover:bg-gray-100 font-medium">
-                  ลงทะเบียน
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
+      {/* Login Card */}
+      <div className="w-full max-w-lg bg-white rounded-lg shadow-md p-10 border border-gray-200">
+        <h2 className="text-3xl font-bold text-blue-900 text-center mb-8">
+          เข้าสู่ระบบ
+        </h2>
+
+        {/* Citizen ID Input */}
+        <div className="mb-6">
+          <label className="block text-gray-800 text-xl font-medium mb-2">
+            เลขประจำตัวประชาชน
+          </label>
+          <input
+            type="text"
+            value={citizenId}
+            onChange={handleCitizenIdChange}
+            placeholder="กรอกเลขบัตรประชาชน 13 หลัก"
+            className="w-full p-4 text-xl text-black  border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            maxLength={13}
+          />
+        </div>
+
+        {/* Password Input */}
+        <div className="mb-8">
+          <label className="block text-gray-800 text-xl font-medium mb-2">
+            รหัสผ่าน
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="กรอกรหัสผ่าน"
+              className="w-full p-4 text-xl border text-black  border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all pr-12"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 text-2xl hover:text-blue-600 transition-colors"
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
+        </div>
+
+        {/* Login Button */}
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className={`w-full p-4 text-white text-xl font-semibold rounded-md bg-blue-700 hover:bg-blue-800 flex items-center justify-center transition-all ${
+            loading ? "opacity-70 cursor-not-allowed" : ""
+          }`}
+        >
+          {loading ? (
+            <>
+              <svg
+                className="animate-spin h-5 w-5 mr-3 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8h8a8 8 0 11-16 0z"
+                />
+              </svg>
+              กำลังเข้าสู่ระบบ...
+            </>
+          ) : (
+            "เข้าสู่ระบบ"
+          )}
+        </button>
+
+        {/* Signup Link */}
+        <div className="text-center mt-6">
+          <p className="text-gray-600 text-lg">
+            ยังไม่มีบัญชี?{" "}
+            <Link
+              href="/front/user-signup"
+              className="text-blue-700 font-medium hover:underline hover:text-blue-900 transition-colors"
+            >
+              สมัครสมาชิก
+            </Link>
+          </p>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-10 text-gray-500 text-sm">
+        © 2025 โรงพยาบาลแม่จัน | All Rights Reserved
+      </footer>
     </div>
   );
-}
+};
+
+export default LoginPage;
