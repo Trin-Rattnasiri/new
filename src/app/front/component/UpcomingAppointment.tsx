@@ -9,6 +9,7 @@ interface Appointment {
   start_time: string;
   end_time: string;
   department: string;
+  user_name: string; // ✅ ได้จาก API
   status: string;
 }
 
@@ -52,6 +53,10 @@ export default function UpcomingAppointment() {
             onClick={() => router.push(`/appointment/${appointment.booking_reference_number}`)}
             className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-4 hover:bg-blue-50 cursor-pointer transition-all"
           >
+            <p className="text-sm text-gray-600 mb-3 text-center">
+              👤 ผู้จอง: <span className="text-blue-800 font-semibold">{appointment.user_name}</span>
+            </p>
+
             <p className="text-base font-semibold text-blue-800 mb-2">
               📅 {new Date(appointment.slot_date).toLocaleDateString("th-TH")}
             </p>
@@ -66,7 +71,7 @@ export default function UpcomingAppointment() {
               appointment.status === "confirmed" ? "text-green-600" : "text-red-600"
             }`}>
               {appointment.status === "pending" ? "รอการยืนยัน" :
-               appointment.status === "confirmed" ? "ยืนยันแล้ว" : "ยกเลิก"}
+              appointment.status === "confirmed" ? "ยืนยันแล้ว" : "ยกเลิก"}
             </p>
           </div>
         ))}
