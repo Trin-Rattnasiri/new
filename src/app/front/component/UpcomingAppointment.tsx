@@ -9,7 +9,7 @@ interface Appointment {
   start_time: string;
   end_time: string;
   department: string;
-  user_name: string; // ✅ ได้จาก API
+  user_name: string;
   status: string;
 }
 
@@ -23,7 +23,6 @@ export default function UpcomingAppointment() {
       if (!createdBy) return
       try {
         const res = await fetch(`/api/user/upcoming?created_by=${createdBy}`)
-
         if (!res.ok) {
           console.error("ไม่สามารถโหลดข้อมูลใบนัดได้")
           return
@@ -53,26 +52,46 @@ export default function UpcomingAppointment() {
             onClick={() => router.push(`/appointment/${appointment.booking_reference_number}`)}
             className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-4 hover:bg-blue-50 cursor-pointer transition-all"
           >
-            <p className="text-sm text-gray-600 mb-3 text-center">
-              👤 ผู้จอง: <span className="text-blue-800 font-semibold">{appointment.user_name}</span>
-            </p>
+            <div className="flex flex-col space-y-1 text-sm text-gray-700">
+              <div className="flex items-center gap-1">
+                <span className="text-purple-800">👤 ผู้จอง:</span>
+                <span className="text-blue-800 font-semibold">{appointment.user_name}</span>
+              </div>
 
-            <p className="text-base font-semibold text-blue-800 mb-2">
-              📅 {new Date(appointment.slot_date).toLocaleDateString("th-TH")}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>🕒 เวลา:</strong> {appointment.start_time} - {appointment.end_time}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>📍 แผนก:</strong> {appointment.department}
-            </p>
-            <p className={`text-sm mt-2 font-medium ${
-              appointment.status === "pending" ? "text-yellow-600" :
-              appointment.status === "confirmed" ? "text-green-600" : "text-red-600"
-            }`}>
-              {appointment.status === "pending" ? "รอการยืนยัน" :
-              appointment.status === "confirmed" ? "ยืนยันแล้ว" : "ยกเลิก"}
-            </p>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600">🧾 รหัสใบนัด:</span>
+                <span className="text-blue-700 font-mono">{appointment.booking_reference_number}</span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="text-blue-600">📅 วันที่:</span>
+                <span>{new Date(appointment.slot_date).toLocaleDateString("th-TH")}</span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span>🕒 เวลา:</span>
+                <span>{appointment.start_time} - {appointment.end_time}</span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span>📍 แผนก:</span>
+                <span>{appointment.department}</span>
+              </div>
+
+              <div className={`mt-1 font-medium ${
+                appointment.status === "pending"
+                  ? "text-yellow-600"
+                  : appointment.status === "confirmed"
+                  ? "text-green-600"
+                  : "text-red-600"
+              }`}>
+                {appointment.status === "pending"
+                  ? "รอการยืนยัน"
+                  : appointment.status === "confirmed"
+                  ? "ยืนยันแล้ว"
+                  : "ยกเลิก"}
+              </div>
+            </div>
           </div>
         ))}
       </div>
