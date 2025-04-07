@@ -15,13 +15,14 @@ interface Appointment {
 export default function UpcomingAppointment() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const router = useRouter()
-  const idCardNumber = typeof window !== "undefined" ? localStorage.getItem("idCardNumber") : ""
+  const createdBy = typeof window !== "undefined" ? localStorage.getItem("citizenId") : ""
 
   useEffect(() => {
     const fetchAppointments = async () => {
-      if (!idCardNumber) return
+      if (!createdBy) return
       try {
-        const res = await fetch(`/api/user/upcoming?id_card_number=${idCardNumber}`)
+        const res = await fetch(`/api/user/upcoming?created_by=${createdBy}`)
+
         if (!res.ok) {
           console.error("ไม่สามารถโหลดข้อมูลใบนัดได้")
           return
@@ -34,7 +35,7 @@ export default function UpcomingAppointment() {
     }
 
     fetchAppointments()
-  }, [idCardNumber])
+  }, [createdBy])
 
   if (!appointments.length) {
     return <p className="mt-4 text-gray-500 text-center">ยังไม่มีนัดหมาย</p>

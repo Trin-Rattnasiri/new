@@ -24,6 +24,10 @@ const Page = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    console.log("👤 citizenId จาก localStorage:", localStorage.getItem("citizenId"));
+  }, []);
+  
+  useEffect(() => {
     async function fetchDepartments() {
       const response = await fetch("/api/bookings");
       const data = await response.json();
@@ -72,11 +76,14 @@ const Page = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+  
     if (!userName || !selectedDepartment || !selectedSlot || !selectedDate || !phoneNumber || !idCardNumber) {
       alert("กรุณากรอกข้อมูลให้ครบ");
       return;
     }
-
+  
+    const created_by = localStorage.getItem("citizenId");
+  
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/admin/que", {
@@ -90,8 +97,10 @@ const Page = () => {
           slot_id: selectedSlot,
           phone_number: phoneNumber,
           id_card_number: idCardNumber,
+          created_by, // ✅ ส่งค่า login
         }),
       });
+  
       const result = await response.json();
       if (result.message === "จองคิวสำเร็จ") {
         alert(result.message);
@@ -110,6 +119,7 @@ const Page = () => {
       setIsSubmitting(false);
     }
   };
+  
 
   const handleViewAppointment = () => {
     if (!bookingReference) {

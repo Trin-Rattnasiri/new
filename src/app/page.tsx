@@ -34,7 +34,9 @@ export default function LoginPage() {
 
       if (res.ok) {
         alert("✅ เข้าสู่ระบบสำเร็จ!");
+        console.log("📌 citizenId ที่จะเก็บ:", citizenId);
         localStorage.setItem("citizenId", citizenId);
+
         router.push("/front/user-dashboard");
       } else {
         alert("❌ เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง");

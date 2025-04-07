@@ -16,10 +16,10 @@ export async function GET(req: Request) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const idCardNumber = searchParams.get("id_card_number")
+    const createdBy = searchParams.get("created_by")
 
-    if (!idCardNumber) {
-      return NextResponse.json({ error: "ไม่พบเลขบัตรประชาชน" }, { status: 400 })
+    if (!createdBy) {
+      return NextResponse.json({ error: "ไม่พบ created_by" }, { status: 400 })
     }
 
     const [rows] = await connection.query(
@@ -28,11 +28,11 @@ export async function GET(req: Request) {
       FROM bookings b
       JOIN slots s ON b.slot_id = s.id
       JOIN departments d ON b.department_id = d.id
-      WHERE b.id_card_number = ?
+      WHERE b.created_by = ?
       AND s.slot_date >= CURDATE()
       ORDER BY s.slot_date ASC, s.start_time ASC
       `,
-      [idCardNumber]
+      [createdBy]
     )
 
     return NextResponse.json(rows)
