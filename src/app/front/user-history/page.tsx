@@ -3,6 +3,7 @@
 import { FiChevronLeft } from "react-icons/fi";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface PatientInfo {
   prefix: string;
@@ -15,6 +16,8 @@ interface PatientInfo {
 }
 
 const MedicalHistoryPage = () => {
+  const router = useRouter();
+
   const [patientInfo, setPatientInfo] = useState<PatientInfo>({
     prefix: "",
     name: "",
@@ -88,10 +91,15 @@ const MedicalHistoryPage = () => {
       <div className="w-full max-w-3xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-800 to-blue-900 text-white p-6 sm:p-8 rounded-2xl shadow-lg flex items-center gap-4 mb-8">
-          <Link href="/front/user-dashboard" className="text-white hover:opacity-90 transition-all duration-300 transform hover:scale-105">
+          <button
+            onClick={() => router.back()}
+            className="text-white hover:opacity-90 transition-all duration-300 transform hover:scale-105"
+          >
             <FiChevronLeft className="text-3xl sm:text-4xl" />
-          </Link>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-wide">ประวัติการรักษา</h2>
+          </button>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-wide">
+            ประวัติการรักษา
+          </h2>
         </div>
 
         {/* Patient Info */}

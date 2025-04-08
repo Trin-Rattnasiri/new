@@ -28,9 +28,9 @@ export default function AppointmentPage() {
   }, [booking_reference_number]);
 
   const handleBack = () => {
-    router.push("/front/user-booking"); // หรือหน้าที่ต้องการให้กลับไป
+    router.back(); // เหมือน history.back()
   };
-
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">

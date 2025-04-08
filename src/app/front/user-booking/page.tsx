@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 
 const Page = () => {
   const router = useRouter();
+  const backTo = "/front/user-dashboard"; // 👈 เปลี่ยน path ได้ตามต้องการ
+
   const [departments, setDepartments] = useState<any[]>([]);
   const [dates, setDates] = useState<any[]>([]);
   const [slots, setSlots] = useState<any[]>([]);
@@ -26,7 +28,7 @@ const Page = () => {
   useEffect(() => {
     console.log("👤 citizenId จาก localStorage:", localStorage.getItem("citizenId"));
   }, []);
-  
+
   useEffect(() => {
     async function fetchDepartments() {
       const response = await fetch("/api/bookings");
@@ -76,14 +78,14 @@ const Page = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+
     if (!userName || !selectedDepartment || !selectedSlot || !selectedDate || !phoneNumber || !idCardNumber) {
       alert("กรุณากรอกข้อมูลให้ครบ");
       return;
     }
-  
+
     const created_by = localStorage.getItem("citizenId");
-  
+
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/admin/que", {
@@ -97,10 +99,10 @@ const Page = () => {
           slot_id: selectedSlot,
           phone_number: phoneNumber,
           id_card_number: idCardNumber,
-          created_by, // ✅ ส่งค่า login
+          created_by,
         }),
       });
-  
+
       const result = await response.json();
       if (result.message === "จองคิวสำเร็จ") {
         alert(result.message);
@@ -119,7 +121,6 @@ const Page = () => {
       setIsSubmitting(false);
     }
   };
-  
 
   const handleViewAppointment = () => {
     if (!bookingReference) {
@@ -130,7 +131,7 @@ const Page = () => {
   };
 
   const handleBack = () => {
-    router.back(); // ย้อนกลับไปยังหน้าเดิม
+    router.push(backTo); // 👈 กลับไปหน้าที่กำหนดเอง
   };
 
   const disabledDates = dates
