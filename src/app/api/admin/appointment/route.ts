@@ -77,13 +77,57 @@ export async function PUT(request: NextRequest) {
     }
     
     const connection = await getConnection();
-    await connection.execute(
-      'UPDATE bookings SET status = ? WHERE id = ?',
-      [body.status, body.bookingId]
-    );
-    await connection.end();
     
-    return NextResponse.json({ message: 'Booking status updated successfully' }, { status: 200 });
+    // Start a transaction to ensure data consistency
+    await connection.beginTransaction();
+    
+    try {
+      // First, get the current booking status and slot_id
+      const [bookingRows] = await connection.execute(
+        'SELECT status, slot_id FROM bookings WHERE id = ?',
+        [body.bookingId]
+      );
+      
+      if (!bookingRows || (bookingRows as any[]).length === 0) {
+        await connection.rollback();
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      }
+      
+      const currentBooking = (bookingRows as any[])[0];
+      const currentStatus = currentBooking.status;
+      const slotId = currentBooking.slot_id;
+      
+      // Update the booking status
+      await connection.execute(
+        'UPDATE bookings SET status = ? WHERE id = ?',
+        [body.status, body.bookingId]
+      );
+      
+      // Handle available_seats update based on status change
+      if (currentStatus !== 'cancelled' && body.status === 'cancelled') {
+        // If changing from pending/confirmed to cancelled, increment available_seats
+        await connection.execute(
+          'UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?',
+          [slotId]
+        );
+      } else if (currentStatus === 'cancelled' && (body.status === 'pending' || body.status === 'confirmed')) {
+        // If changing from cancelled to pending/confirmed, decrement available_seats
+        await connection.execute(
+          'UPDATE slots SET available_seats = available_seats - 1 WHERE id = ?',
+          [slotId]
+        );
+      }
+      
+      // Commit the transaction
+      await connection.commit();
+      await connection.end();
+      
+      return NextResponse.json({ message: 'Booking status updated successfully' }, { status: 200 });
+    } catch (error) {
+      // If anything goes wrong, roll back the transaction
+      await connection.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error('Error updating booking status:', error);
     return NextResponse.json({ error: 'Failed to update booking status' }, { status: 500 });
@@ -101,13 +145,48 @@ export async function DELETE(request: NextRequest) {
     }
     
     const connection = await getConnection();
-    await connection.execute(
-      'DELETE FROM bookings WHERE id = ?',
-      [bookingId]
-    );
-    await connection.end();
     
-    return NextResponse.json({ message: 'Booking deleted successfully' }, { status: 200 });
+    // Start a transaction to ensure data consistency
+    await connection.beginTransaction();
+    
+    try {
+      // First, get the booking status and slot_id
+      const [bookingRows] = await connection.execute(
+        'SELECT status, slot_id FROM bookings WHERE id = ?',
+        [bookingId]
+      );
+      
+      if (!bookingRows || (bookingRows as any[]).length === 0) {
+        await connection.rollback();
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      }
+      
+      const booking = (bookingRows as any[])[0];
+      
+      // Only increment available_seats if the booking was not already cancelled
+      if (booking.status !== 'cancelled') {
+        await connection.execute(
+          'UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?',
+          [booking.slot_id]
+        );
+      }
+      
+      // Delete the booking
+      await connection.execute(
+        'DELETE FROM bookings WHERE id = ?',
+        [bookingId]
+      );
+      
+      // Commit the transaction
+      await connection.commit();
+      await connection.end();
+      
+      return NextResponse.json({ message: 'Booking deleted successfully' }, { status: 200 });
+    } catch (error) {
+      // If anything goes wrong, roll back the transaction
+      await connection.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error('Error deleting booking:', error);
     return NextResponse.json({ error: 'Failed to delete booking' }, { status: 500 });

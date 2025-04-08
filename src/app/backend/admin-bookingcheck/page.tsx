@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation" // เพิ่ม useRouter
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -19,7 +19,6 @@ interface Booking {
   status: "pending" | "confirmed" | "cancelled"
 }
 
-// Function to format the date as dd/mm/yyyy in Thai Buddhist Era (B.E.)
 const formatBookingDate = (dateString: string) => {
   const date = new Date(dateString)
   const day = date.getDate().toString().padStart(2, "0")
@@ -28,7 +27,6 @@ const formatBookingDate = (dateString: string) => {
   return `${day}/${month}/${year}`
 }
 
-// Function to format time in a more readable format (24-hour format)
 const formatTime = (timeString: string) => {
   try {
     return new Date(`1970-01-01T${timeString}Z`).toLocaleTimeString([], {
@@ -42,7 +40,7 @@ const formatTime = (timeString: string) => {
 }
 
 const AdminSearchPage = () => {
-  const router = useRouter() // เพิ่ม router
+  const router = useRouter()
   const [bookingReferenceNumber, setBookingReferenceNumber] = useState("")
   const [bookingData, setBookingData] = useState<Booking | null>(null)
   const [error, setError] = useState("")
@@ -51,7 +49,7 @@ const AdminSearchPage = () => {
 
   const handleSearch = async () => {
     if (!bookingReferenceNumber.trim()) {
-      setError("Please enter a booking reference number")
+      setError("กรุณากรอกหมายเลขการจอง")
       return
     }
 
@@ -59,48 +57,67 @@ const AdminSearchPage = () => {
     setError("")
 
     try {
-      const res = await fetch(`/api/admin/seach?booking_reference_number=${bookingReferenceNumber}`)
+      console.log(`Searching: ${bookingReferenceNumber}`);
+      const res = await fetch(`/api/admin/seach?booking_reference_number=${bookingReferenceNumber}`);
+      const data = await res.json();
+
       if (!res.ok) {
-        throw new Error("Booking not found")
+        throw new Error(data.error || "ไม่พบการจอง")
       }
-      const data = await res.json()
-      setBookingData(data.booking)
-    } catch (err: any) {
-      setError(err.message || "An error occurred while searching")
+
+      setBookingData(data.booking);
+      console.log(`Found booking: ${bookingReferenceNumber}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ"
+      setError(errorMessage)
       setBookingData(null)
+      console.error(`Search error: ${errorMessage}`);
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleUpdateStatus = async (newStatus: string) => {
+  const handleUpdateStatus = async (newStatus: "pending" | "confirmed" | "cancelled") => {
+    if (!bookingData) {
+      setError("ไม่มีข้อมูลการจองให้อัปเดต")
+      return
+    }
+
+    if (bookingData.status === newStatus) {
+      setError(`สถานะปัจจุบันคือ "${newStatus}" อยู่แล้ว`)
+      return
+    }
+
     setIsUpdating(true)
+    setError("")
+
     try {
+      console.log(`Updating ${bookingData.booking_reference_number} to ${newStatus}`);
       const res = await fetch("/api/admin/seach", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          bookingReferenceNumber,
+          bookingReferenceNumber: bookingData.booking_reference_number,
           status: newStatus,
         }),
-      })
+      });
 
+      const data = await res.json();
       if (!res.ok) {
-        throw new Error("Failed to update status")
+        throw new Error(data.error || "ไม่สามารถอัปเดตสถานะได้")
       }
 
-      const data = await res.json()
-      const updatedBooking = { ...bookingData, status: newStatus as any }
-      setBookingData(updatedBooking)
+      setBookingData({ ...bookingData, status: newStatus });
+      console.log(`Updated ${bookingData.booking_reference_number} to ${newStatus}`);
 
-      // ถ้าสถานะเป็น "confirmed" ให้ไปยังหน้าใบนัด
       if (newStatus === "confirmed") {
-        router.push(`/admin/appointment-slip?booking_reference_number=${bookingReferenceNumber}`)
+        console.log(`Redirecting to appointment slip for ${bookingData.booking_reference_number}`);
+        router.push(`/admin/appointment-slip?booking_reference_number=${bookingData.booking_reference_number}`);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to update status")
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ"
+      setError(errorMessage)
+      console.error(`Update error: ${errorMessage}`);
     } finally {
       setIsUpdating(false)
     }
@@ -109,23 +126,11 @@ const AdminSearchPage = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmed":
-        return (
-          <Badge className="bg-green-500 hover:bg-green-600">
-            <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Confirmed
-          </Badge>
-        )
+        return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Confirmed</Badge>
       case "cancelled":
-        return (
-          <Badge className="bg-red-500 hover:bg-red-600">
-            <XCircle className="w-3.5 h-3.5 mr-1" /> Cancelled
-          </Badge>
-        )
+        return <Badge className="bg-red-500 hover:bg-red-600"><XCircle className="w-3.5 h-3.5 mr-1" /> Cancelled</Badge>
       case "pending":
-        return (
-          <Badge className="bg-yellow-500 hover:bg-yellow-600">
-            <Clock3 className="w-3.5 h-3.5 mr-1" /> Pending
-          </Badge>
-        )
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600"><Clock3 className="w-3.5 h-3.5 mr-1" /> Pending</Badge>
       default:
         return <Badge>{status}</Badge>
     }
@@ -140,13 +145,13 @@ const AdminSearchPage = () => {
 
       <Card className="mb-8">
         <CardHeader className="pb-3">
-          <CardTitle>Search Booking</CardTitle>
+          <CardTitle>ค้นหาการจอง</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Input
-                placeholder="Enter Booking Reference Number"
+                placeholder="กรอกหมายเลขการจอง"
                 value={bookingReferenceNumber}
                 onChange={(e) => setBookingReferenceNumber(e.target.value)}
                 className="pl-0"
@@ -159,7 +164,7 @@ const AdminSearchPage = () => {
               className="min-w-[100px]"
             >
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-              Search
+              ค้นหา
             </Button>
           </div>
 
@@ -175,7 +180,7 @@ const AdminSearchPage = () => {
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Searching for booking...</p>
+          <p className="text-muted-foreground">กำลังค้นหาการจอง...</p>
         </div>
       )}
 
@@ -183,7 +188,7 @@ const AdminSearchPage = () => {
         <Card className="shadow-lg overflow-hidden transition-all duration-300 animate-in fade-in-50">
           <CardHeader className="bg-muted/50 pb-3">
             <CardTitle className="flex items-center justify-between">
-              <span>Booking Details</span>
+              <span>รายละเอียดการจอง</span>
               {getStatusBadge(bookingData.status)}
             </CardTitle>
           </CardHeader>
@@ -194,7 +199,7 @@ const AdminSearchPage = () => {
                 <div className="flex items-start">
                   <Tag className="h-5 w-5 mr-2 text-primary mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Booking Reference</p>
+                    <p className="text-sm font-medium text-muted-foreground">หมายเลขการจอง</p>
                     <p className="font-semibold">{bookingData.booking_reference_number}</p>
                   </div>
                 </div>
@@ -202,7 +207,7 @@ const AdminSearchPage = () => {
                 <div className="flex items-start">
                   <User className="h-5 w-5 mr-2 text-primary mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">User Name</p>
+                    <p className="text-sm font-medium text-muted-foreground">ชื่อผู้จอง</p>
                     <p className="font-semibold">{bookingData.user_name}</p>
                   </div>
                 </div>
@@ -210,7 +215,7 @@ const AdminSearchPage = () => {
                 <div className="flex items-start">
                   <Building className="h-5 w-5 mr-2 text-primary mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Department</p>
+                    <p className="text-sm font-medium text-muted-foreground">หน่วยงาน</p>
                     <p className="font-semibold">{bookingData.department_name}</p>
                   </div>
                 </div>
@@ -220,7 +225,7 @@ const AdminSearchPage = () => {
                 <div className="flex items-start">
                   <Calendar className="h-5 w-5 mr-2 text-primary mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Booking Date</p>
+                    <p className="text-sm font-medium text-muted-foreground">วันที่จอง</p>
                     <p className="font-semibold">{formatBookingDate(bookingData.booking_date)}</p>
                   </div>
                 </div>
@@ -228,7 +233,7 @@ const AdminSearchPage = () => {
                 <div className="flex items-start">
                   <Clock className="h-5 w-5 mr-2 text-primary mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Time Slot</p>
+                    <p className="text-sm font-medium text-muted-foreground">ช่วงเวลา</p>
                     <p className="font-semibold">
                       {formatTime(bookingData.start_time)} - {formatTime(bookingData.end_time)}
                     </p>
@@ -246,12 +251,8 @@ const AdminSearchPage = () => {
               disabled={isUpdating || bookingData.status === "confirmed"}
               className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
             >
-              {isUpdating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-              )}
-              Confirm
+              {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+              ยืนยัน
             </Button>
 
             <Button
@@ -260,7 +261,7 @@ const AdminSearchPage = () => {
               className="bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto"
             >
               {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock3 className="mr-2 h-4 w-4" />}
-              Set Pending
+              รอดำเนินการ
             </Button>
 
             <Button
@@ -269,7 +270,7 @@ const AdminSearchPage = () => {
               className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
             >
               {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-              Cancel
+              ยกเลิก
             </Button>
           </CardFooter>
         </Card>

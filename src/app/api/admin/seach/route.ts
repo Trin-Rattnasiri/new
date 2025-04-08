@@ -11,19 +11,20 @@ const getConnection = async () => {
   });
 };
 
-// Handler for searching booking by reference number and fetching details
+// GET handler to fetch booking details
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const bookingReferenceNumber = url.searchParams.get('booking_reference_number') || '';
 
   if (!bookingReferenceNumber) {
-    return NextResponse.json({ error: 'Booking reference number is required.' }, { status: 400 });
+    console.log('GET: Missing booking_reference_number');
+    return NextResponse.json({ error: 'Booking reference number is required' }, { status: 400 });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
-
-    // SQL Query: Join bookings with departments and slots to get department name, start and end time, and booking date
+    connection = await getConnection();
+    console.log(`GET: Fetching booking for ${bookingReferenceNumber}`);
     const [rows] = await connection.execute<any[]>(
       `SELECT 
         b.booking_reference_number, 
@@ -41,44 +42,100 @@ export async function GET(request: Request) {
     );
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'Booking not found.' }, { status: 404 });
+      console.log(`GET: Booking not found for ${bookingReferenceNumber}`);
+      return NextResponse.json({ error: `Booking not found: ${bookingReferenceNumber}` }, { status: 404 });
     }
 
-    // Return the booking data with the booking date
     return NextResponse.json({ booking: rows[0] }, { status: 200 });
   } catch (error) {
-    console.error('Database query error:', error);
-    return NextResponse.json({ error: 'An error occurred while fetching the booking.' }, { status: 500 });
+    console.error('GET: Error fetching booking:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: 'Failed to fetch booking', details: errorMessage }, { status: 500 });
+  } finally {
+    if (connection) await connection.end();
   }
-}
+};
 
-// Handler for updating booking status
+// PATCH handler to update booking status
 export async function PATCH(request: Request) {
-  const { bookingReferenceNumber, status } = await request.json();
+  const body = await request.json();
+  const { bookingReferenceNumber, status } = body;
 
   if (!bookingReferenceNumber || !status) {
-    return NextResponse.json({ error: 'Booking reference number and status are required.' }, { status: 400 });
+    console.log('PATCH: Missing bookingReferenceNumber or status');
+    return NextResponse.json({ error: 'Booking reference number and status are required' }, { status: 400 });
   }
 
   const validStatuses = ['pending', 'confirmed', 'cancelled'];
   if (!validStatuses.includes(status)) {
-    return NextResponse.json({ error: 'Invalid status.' }, { status: 400 });
+    console.log(`PATCH: Invalid status: ${status}`);
+    return NextResponse.json({ error: `Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}` }, { status: 400 });
   }
 
+  let connection;
   try {
-    const connection = await getConnection();
-    const [result] = await connection.execute<any>(
+    connection = await getConnection();
+    console.log(`PATCH: Updating booking ${bookingReferenceNumber} to status ${status}`);
+
+    // Start transaction
+    await connection.beginTransaction();
+
+    // Check if booking exists and lock it
+    const [bookingRows] = await connection.execute<any[]>(
+      'SELECT status, slot_id FROM bookings WHERE booking_reference_number = ? FOR UPDATE',
+      [bookingReferenceNumber]
+    );
+
+    if (bookingRows.length === 0) {
+      await connection.rollback();
+      console.log(`PATCH: Booking not found: ${bookingReferenceNumber}`);
+      return NextResponse.json({ error: `Booking not found: ${bookingReferenceNumber}` }, { status: 404 });
+    }
+
+    const currentBooking = bookingRows[0];
+    const currentStatus = currentBooking.status;
+    const slotId = currentBooking.slot_id;
+
+    // Only update available_seats if transitioning to/from cancelled
+    if (currentStatus !== status) {
+      if (currentStatus === 'cancelled' && (status === 'pending' || status === 'confirmed')) {
+        const [slotRows] = await connection.execute<any[]>(
+          'SELECT available_seats FROM slots WHERE id = ? FOR UPDATE',
+          [slotId]
+        );
+        if (slotRows.length === 0 || slotRows[0].available_seats <= 0) {
+          await connection.rollback();
+          console.log(`PATCH: No available seats for slot ${slotId}`);
+          return NextResponse.json({ error: 'No available seats for this slot' }, { status: 400 });
+        }
+        await connection.execute(
+          'UPDATE slots SET available_seats = available_seats - 1 WHERE id = ?',
+          [slotId]
+        );
+      } else if (currentStatus !== 'cancelled' && status === 'cancelled') {
+        await connection.execute(
+          'UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?',
+          [slotId]
+        );
+      }
+      // No change in available_seats when switching between pending and confirmed
+    }
+
+    // Update booking status
+    await connection.execute(
       'UPDATE bookings SET status = ? WHERE booking_reference_number = ?',
       [status, bookingReferenceNumber]
     );
 
-    if (result.affectedRows === 0) {
-      return NextResponse.json({ error: 'Booking not found or no change made.' }, { status: 404 });
-    }
-
-    return NextResponse.json({ message: 'Booking status updated successfully.' }, { status: 200 });
+    await connection.commit();
+    console.log(`PATCH: Successfully updated ${bookingReferenceNumber} to ${status}`);
+    return NextResponse.json({ message: `Booking ${bookingReferenceNumber} updated to ${status}` }, { status: 200 });
   } catch (error) {
-    console.error('Error updating booking status:', error);
-    return NextResponse.json({ error: 'An error occurred while updating the booking status.' }, { status: 500 });
+    if (connection) await connection.rollback();
+    console.error('PATCH: Error updating booking:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: 'Failed to update booking', details: errorMessage }, { status: 500 });
+  } finally {
+    if (connection) await connection.end();
   }
 }
