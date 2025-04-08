@@ -31,7 +31,8 @@ const MedicalHistoryPage = () => {
   useEffect(() => {
     const citizenId = localStorage.getItem("citizenId");
     if (citizenId) {
-      fetch(`/api/user?citizenId=${citizenId}`)
+      fetch(`/api/user/profile?citizenId=${citizenId}`)
+
         .then((res) => res.json())
         .then((data) => {
           const birthDate = new Date(data.birthday);
