@@ -1,4 +1,3 @@
-// src/app/admin/appointment/page.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -153,6 +152,22 @@ export default function AppointmentPage() {
       setBookings(bookings.map(booking => 
         booking.id === bookingId ? { ...booking, status } : booking
       ));
+      
+      // Refresh the slots data to get updated available seats
+      if (selectedDepartment) {
+        const slotsResponse = await fetch('/api/admin/appointment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ departmentId: selectedDepartment }),
+        });
+        
+        if (slotsResponse.ok) {
+          const data = await slotsResponse.json();
+          setSlots(data.slots);
+        }
+      }
     } catch (err) {
       setError('Error updating booking status');
       console.error(err);
@@ -174,6 +189,22 @@ export default function AppointmentPage() {
       // Remove the deleted booking from the state
       setBookings(bookings.filter(booking => booking.id !== bookingId));
       setIsDeleting(false);
+      
+      // Refresh the slots data to get updated available seats
+      if (selectedDepartment) {
+        const slotsResponse = await fetch('/api/admin/appointment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ departmentId: selectedDepartment }),
+        });
+        
+        if (slotsResponse.ok) {
+          const data = await slotsResponse.json();
+          setSlots(data.slots);
+        }
+      }
     } catch (err) {
       setError('Error deleting booking');
       setIsDeleting(false);
