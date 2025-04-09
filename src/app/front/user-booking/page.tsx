@@ -208,7 +208,7 @@ const Page = () => {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
-                    placeholder="รหัสใบนัด (เช่น 20250406-00001)"
+                    placeholder="เลขใบนัด (เช่น 20250406-00001)"
                     value={bookingReference}
                     onChange={(e) => setBookingReference(e.target.value)}
                     className="flex-1 border-gray-300"

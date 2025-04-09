@@ -59,7 +59,7 @@ export default function UpcomingAppointment() {
               </div>
 
               <div className="flex items-center gap-1">
-                <span className="text-gray-600">🧾 รหัสใบนัด:</span>
+                <span className="text-gray-600">🧾 เลขใบนัด:</span>
                 <span className="text-blue-700 font-mono">{appointment.booking_reference_number}</span>
               </div>
 

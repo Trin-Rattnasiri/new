@@ -91,7 +91,7 @@ export default function AppointmentPage() {
             <div className="flex items-start gap-3">
               <FileText className="h-5 w-5 text-sky-600 mt-1" />
               <div>
-                <p className="text-sm text-gray-600 font-semibold">รหัสใบนัด</p>
+                <p className="text-sm text-gray-600 font-semibold">เลขใบนัด</p>
                 <p className="text-base text-gray-800">{data.booking_reference_number}</p>
               </div>
             </div>
