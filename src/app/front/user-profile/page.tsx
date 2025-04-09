@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import UpcomingAppointment from "../component/UpcomingAppointment";
 
 interface UserInfo {
@@ -23,7 +23,6 @@ export default function HomePage() {
     if (id) {
       setCitizenId(id)
       fetch(`/api/user/profile?citizenId=${id}`)
-
         .then((res) => res.json())
         .then((data) => setUserInfo(data))
         .catch((err) => console.error("❌ Error loading user info:", err))
@@ -38,6 +37,18 @@ export default function HomePage() {
       year: "numeric"
     })
   }
+
+  // ✅ แก้ตรงนี้: ใช้ตัวแปร avatarSrc เพื่อให้แน่ใจว่า React จะ render ใหม่เมื่อ prefix เปลี่ยน
+  const avatarSrc = useMemo(() => {
+    const prefix = userInfo?.prefix?.trim()
+    if (!prefix) return "/man.png"
+  
+    if (["นาง", "นางสาว"].includes(prefix)) return "/woman.png"
+    if (prefix === "เด็กหญิง") return "/girl.png"
+    if (prefix === "เด็กชาย") return "/boy.png"
+    return "/man.png"
+  }, [userInfo?.prefix])
+  
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
@@ -54,12 +65,7 @@ export default function HomePage() {
         {/* User Info */}
         <div className="flex items-center flex-col mt-8">
           <img
-            src={
-              userInfo?.prefix === "นาง" ? "/woman.png" :
-              userInfo?.prefix === "เด็กหญิง" ? "/girl.png" :
-              userInfo?.prefix === "เด็กชาย" ? "/boy.png" :
-              "/man.png"
-            }
+            src={avatarSrc}
             alt="Avatar"
             className="w-20 h-20 rounded-full border"
           />
@@ -91,7 +97,7 @@ export default function HomePage() {
             <p className="text-sm font-semibold text-blue-800 mt-2">ประวัติการรักษา</p>
           </button>
         </div>
-      </div> 
+      </div>
 
       {/* นัดหมายที่จะถึง */}
       <UpcomingAppointment />
