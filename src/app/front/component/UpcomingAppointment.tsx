@@ -43,7 +43,7 @@ export default function UpcomingAppointment() {
 
   return (
     <div className="w-full max-w-md mt-6">
-      <h3 className="text-xl font-bold text-gray-800 mb-3">🩺 นัดหมายที่จะถึง</h3>
+      <h3 className="text-xl font-bold text-gray-800 mb-3"> นัดหมายที่จะถึง</h3>
 
       <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200">
         {appointments.map((appointment) => (

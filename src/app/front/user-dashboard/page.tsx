@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { LogOut, Calendar, History, User } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import UpcomingAppointment from "../component/UpcomingAppointment"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -49,158 +50,73 @@ const DashboardPage = () => {
   }
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center pb-10 px-2"
-      style={{ background: "linear-gradient(to bottom, #f8fafc, #eff6ff)" }}
-    >
+    <div className="min-h-screen bg-white flex flex-col items-center pb-10 px-2">
       {/* Header */}
-      <header
-        className="w-full py-3 px-4 shadow-md flex items-center justify-between sticky top-0 z-10"
-        style={{ background: "linear-gradient(to right, #1d4ed8, #1e3a8a)" }}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <Avatar className="border-2 border-white h-9 w-9 shrink-0">
-            <AvatarImage src={avatarSrc} alt="โปรไฟล์ผู้ใช้" />
-            <AvatarFallback>MCH</AvatarFallback>
-          </Avatar>
-          <div className="relative w-[120px] sm:w-[150px] overflow-hidden">
-            <div className="whitespace-nowrap text-white text-xs sm:text-sm font-medium animate-marquee">
-              โรงพยาบาลแม่จัน ยินดีต้อนรับ
-            </div>
-          </div>
-        </div>
-
-        <h1 className="text-white text-sm sm:text-xl font-bold tracking-wide text-center flex-1 hidden sm:block">
-          MCH
-        </h1>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="sm"
-                style={{ backgroundColor: "#2563eb", color: "white" }}
-                className="rounded-full hover:bg-blue-700 text-white whitespace-nowrap"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4 mr-1" />
-                <span className="text-sm hidden sm:inline">ออกจากระบบ</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>ออกจากระบบ</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </header>
-
-      {/* Banner */}
-      <div className="w-full mt-6 px-4">
-  <div className="max-w-md mx-auto overflow-hidden shadow-lg rounded-2xl bg-white">
-    <Image
-      src="/fight.jpg"
-      alt="โรงพยาบาลแม่จันร่วมต้านทุจริต"
-      width={800}
-      height={400}
-      className="w-full h-auto object-cover"
-    />
-  </div>
-</div>
-
-      {/* Main Menu */}
-      <div className="w-full max-w-md mt-8 px-4">
-        <div className="flex items-center mb-4">
-          <div className="h-8 w-1 rounded-full mr-3" style={{ backgroundColor: "#2563eb" }}></div>
-          <h2 className="text-lg font-bold text-slate-800">รายการหลัก</h2>
-        </div>
-
-        <div className="space-y-4">
-          <Link href="/front/user-booking" className="block">
-            <Card className="border border-slate-200 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex items-center flex-col sm:flex-row">
-                  <div
-                    className="w-full sm:w-20 h-20 flex items-center justify-center"
-                    style={{ background: "linear-gradient(to bottom right, #3b82f6, #1d4ed8)" }}
-                  >
-                    <div className="bg-white/20 rounded-full p-3">
-                      <Calendar className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                  <div className="p-4 text-center sm:text-left w-full">
-                    <span className="text-base text-slate-800 font-medium">นัดหมายออนไลน์</span>
-                    <p className="text-sm text-slate-500 mt-1">จองคิวและนัดหมายล่วงหน้า</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/front/user-history" className="block">
-            <Card className="border border-slate-200 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex items-center flex-col sm:flex-row">
-                  <div
-                    className="w-full sm:w-20 h-20 flex items-center justify-center"
-                    style={{ background: "linear-gradient(to bottom right, #14b8a6, #0f766e)" }}
-                  >
-                    <div className="bg-white/20 rounded-full p-3">
-                      <History className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                  <div className="p-4 text-center sm:text-left w-full">
-                    <span className="text-base text-slate-800 font-medium">ประวัติการรักษา</span>
-                    <p className="text-sm text-slate-500 mt-1">ดูประวัติการรักษาของคุณ</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-
-        <div className="flex items-center mb-4 mt-6">
-          <div className="h-8 w-1 rounded-full mr-3" style={{ backgroundColor: "#9333ea" }}></div>
-          <h2 className="text-lg font-bold text-slate-800">ข้อมูลส่วนบุคคล</h2>
-        </div>
-
-        <Link href="/front/user-profile" className="block">
-          <Card className="border border-slate-200 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-            <CardContent className="p-0">
-              <div className="flex items-center flex-col sm:flex-row">
-                <div
-                  className="w-full sm:w-20 h-20 flex items-center justify-center"
-                  style={{ background: "linear-gradient(to bottom right, #a855f7, #7e22ce)" }}
-                >
-                  <div className="bg-white/20 rounded-full p-3">
-                    <User className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-                <div className="p-4 text-center sm:text-left w-full">
-                  <span className="text-base text-slate-800 font-medium">ข้อมูลผู้ใช้งาน</span>
-                  <p className="text-sm text-slate-500 mt-1">จัดการข้อมูลส่วนตัวของคุณ</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+      <div className="w-screen bg-[#0b47d4] text-white text-center py-3 text-xl font-bold relative">
+        โรงพยาบาลแม่จัน
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-blue-900"
+          onClick={handleLogout}
+        >
+          <LogOut className="w-4 h-4 mr-1" />
+          ออกจากระบบ
+        </Button>
       </div>
 
-      {/* Marquee Animation */}
-      <style jsx global>{`
-        @keyframes marquee {
-          0% {
-            transform: translateX(100%);
-          }
-          100% {
-            transform: translateX(-100%);
-          }
-        }
-        .animate-marquee {
-          display: inline-block;
-          animation: marquee 10s linear infinite;
-        }
-      `}</style>
+      {/* User Info */}
+      <div className="w-full max-w-md px-4 mt-4 flex items-center">
+        <Avatar className="h-12 w-12 border border-white">
+          <AvatarImage src={avatarSrc} />
+          <AvatarFallback>PT</AvatarFallback>
+        </Avatar>
+        <div className="ml-3">
+          <div className="font-bold text-sm">{userInfo?.name || ""}</div>
+          <div className="text-white text-sm bg-blue-700 px-2 py-0.5 rounded-md mt-1">HN {userInfo?.citizenId || "123456-78"}</div>
+        </div>
+      </div>
+
+      {/* Banner */}
+      <div className="w-full mt-4 px-4">
+        <div className="max-w-md mx-auto overflow-hidden shadow-lg rounded-xl bg-white">
+          <Image
+            src="/fight.jpg"
+            alt="โรงพยาบาลแม่จันร่วมต้านทุจริต"
+            width={800}
+            height={400}
+            className="w-full h-auto object-cover"
+          />
+        </div>
+      </div>
+
+      {/* รายการสำคัญ */}
+      <UpcomingAppointment />
+
+      {/* รายการหลัก */}
+      <div className="w-full max-w-md mt-6 px-4">
+        <div className="font-bold text-slate-800 mb-2">รายการหลัก</div>
+        <div className="space-y-5">
+          <Link href="/front/user-booking" className="block">
+            <div className="bg-white rounded-xl p-4 flex items-center shadow-md">
+              <Calendar className="text-blue-500 mr-3" />
+              <div>
+                <div className="text-slate-800 font-medium">นัดหมายออนไลน์</div>
+                <div className="text-sm text-slate-500">จองคิวและนัดหมายล่วงหน้า</div>
+              </div>
+            </div>
+          </Link>
+          <Link href="/front/user-history" className="block">
+            <div className="bg-white rounded-xl p-4 flex items-center shadow-md">
+              <History className="text-teal-500 mr-3" />
+              <div>
+                <div className="text-slate-800 font-medium">ประวัติการรักษา</div>
+                <div className="text-sm text-slate-500">ดูประวัติการรักษาของคุณ</div>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
