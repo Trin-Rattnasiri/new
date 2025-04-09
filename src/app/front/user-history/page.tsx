@@ -1,22 +1,22 @@
-"use client";
+"use client"
 
-import { FiChevronLeft } from "react-icons/fi";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FiChevronLeft } from "react-icons/fi"
+import Link from "next/link"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 
 interface PatientInfo {
-  prefix: string;
-  name: string;
-  age: string;
-  IdCard: string;
-  bloodType: string;
-  DrugAllergy: string;
-  chronicDisease: string;
+  prefix: string
+  name: string
+  age: string
+  IdCard: string
+  bloodType: string
+  DrugAllergy: string
+  chronicDisease: string
 }
 
 const MedicalHistoryPage = () => {
-  const router = useRouter();
+  const router = useRouter()
 
   const [patientInfo, setPatientInfo] = useState<PatientInfo>({
     prefix: "",
@@ -26,22 +26,21 @@ const MedicalHistoryPage = () => {
     bloodType: "B",
     DrugAllergy: "NSAIDs",
     chronicDisease: "ไม่มี",
-  });
+  })
 
   useEffect(() => {
-    const citizenId = localStorage.getItem("citizenId");
+    const citizenId = localStorage.getItem("citizenId")
     if (citizenId) {
       fetch(`/api/user/profile?citizenId=${citizenId}`)
-
         .then((res) => res.json())
         .then((data) => {
-          const birthDate = new Date(data.birthday);
-          const now = new Date();
-          const diff = new Date(now.getTime() - birthDate.getTime());
-          const years = diff.getUTCFullYear() - 1970;
-          const months = diff.getUTCMonth();
-          const days = diff.getUTCDate() - 1;
-          const ageText = `${years} ปี ${months} เดือน ${days} วัน`;
+          const birthDate = new Date(data.birthday)
+          const now = new Date()
+          const diff = new Date(now.getTime() - birthDate.getTime())
+          const years = diff.getUTCFullYear() - 1970
+          const months = diff.getUTCMonth()
+          const days = diff.getUTCDate() - 1
+          const ageText = `${years} ปี ${months} เดือน ${days} วัน`
           setPatientInfo({
             prefix: data.prefix,
             name: data.name,
@@ -50,10 +49,10 @@ const MedicalHistoryPage = () => {
             bloodType: "B",
             DrugAllergy: "NSAIDs",
             chronicDisease: "ไม่มี",
-          });
-        });
+          })
+        })
     }
-  }, []);
+  }, [])
 
   const historyData = [
     {
@@ -85,22 +84,42 @@ const MedicalHistoryPage = () => {
         },
       ],
     },
-  ];
+  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
       <div className="w-full max-w-3xl">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-800 to-blue-900 text-white p-6 sm:p-8 rounded-2xl shadow-lg flex items-center gap-4 mb-8">
+        {/* Header - ใช้ inline style แทน */}
+        <div
+          style={{
+            background: "linear-gradient(to right, #1e40af, #1e3a8a)",
+            color: "white",
+            borderRadius: "1rem",
+            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+            padding: "1.5rem 2rem",
+            marginBottom: "2rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+          }}
+        >
           <button
             onClick={() => router.back()}
-            className="text-white hover:opacity-90 transition-all duration-300 transform hover:scale-105"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+              borderRadius: "9999px",
+              padding: "0.5rem",
+              color: "white",
+              transition: "all 0.3s",
+              cursor: "pointer",
+              border: "none",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.3)")}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.2)")}
           >
-            <FiChevronLeft className="text-3xl sm:text-4xl" />
+            <FiChevronLeft className="text-2xl sm:text-3xl" />
           </button>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-wide">
-            ประวัติการรักษา
-          </h2>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-wide">ประวัติการรักษา</h2>
         </div>
 
         {/* Patient Info */}
@@ -139,11 +158,9 @@ const MedicalHistoryPage = () => {
               <div key={monthIndex} className="mt-6 border-t border-gray-200 pt-6">
                 <h4 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-800 mb-4">{monthData.month}</h4>
                 {monthData.records.map((record, recordIndex) => (
-                  <Link href={`/results/${record.id}`} key={recordIndex}>
+                  <Link href={`/front/results/${record.id}`} key={recordIndex}>
                     <div className="group p-4 sm:p-5 bg-gray-50 rounded-xl shadow-sm mb-4 hover:bg-blue-50 hover:shadow-md transition-all duration-300 transform hover:scale-105 cursor-pointer border border-gray-200">
-                      <p className="text-lg sm:text-xl text-blue-900 font-semibold">
-                        วันที่ {record.date}
-                      </p>
+                      <p className="text-lg sm:text-xl text-blue-900 font-semibold">วันที่ {record.date}</p>
                       <p className="text-base sm:text-lg text-gray-800">
                         <strong className="text-blue-900">แผนก:</strong> {record.department}
                       </p>
@@ -162,7 +179,7 @@ const MedicalHistoryPage = () => {
         ))}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default MedicalHistoryPage;
+export default MedicalHistoryPage
