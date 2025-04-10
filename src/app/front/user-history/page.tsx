@@ -10,6 +10,7 @@ interface PatientInfo {
   name: string
   age: string
   IdCard: string
+  hn: string // ✅ เพิ่ม hn
   bloodType: string
   DrugAllergy: string
   chronicDisease: string
@@ -23,6 +24,7 @@ const MedicalHistoryPage = () => {
     name: "",
     age: "",
     IdCard: "",
+    hn: "", // ✅ ค่าเริ่มต้น hn
     bloodType: "B",
     DrugAllergy: "NSAIDs",
     chronicDisease: "ไม่มี",
@@ -41,11 +43,13 @@ const MedicalHistoryPage = () => {
           const months = diff.getUTCMonth()
           const days = diff.getUTCDate() - 1
           const ageText = `${years} ปี ${months} เดือน ${days} วัน`
+
           setPatientInfo({
             prefix: data.prefix,
             name: data.name,
             age: ageText,
             IdCard: data.citizenId,
+            hn: data.hn || "-", // ✅ ดึง hn จาก API
             bloodType: "B",
             DrugAllergy: "NSAIDs",
             chronicDisease: "ไม่มี",
@@ -89,7 +93,7 @@ const MedicalHistoryPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
       <div className="w-full max-w-3xl">
-        {/* Header - ใช้ inline style แทน */}
+        {/* Header */}
         <div
           style={{
             background: "linear-gradient(to right, #1e40af, #1e3a8a)",
@@ -133,6 +137,12 @@ const MedicalHistoryPage = () => {
               <strong className="text-blue-900">อายุ:</strong> {patientInfo.age || "-"}
             </p>
             <p className="text-lg sm:text-xl text-gray-700">
+              <strong className="text-blue-900">เลข HN:</strong> {patientInfo.hn || "-"}
+            </p>
+            <p className="text-lg sm:text-xl text-gray-700">
+              <strong className="text-blue-900">เลขบัตรประชาชน:</strong> {patientInfo.IdCard || "-"}
+            </p>
+            <p className="text-lg sm:text-xl text-gray-700">
               <strong className="text-blue-900">หมู่เลือด:</strong> {patientInfo.bloodType}
             </p>
             <p className="text-lg sm:text-xl text-gray-700">
@@ -140,9 +150,6 @@ const MedicalHistoryPage = () => {
             </p>
             <p className="text-lg sm:text-xl text-gray-700">
               <strong className="text-blue-900">ประวัติการแพ้ยา:</strong> {patientInfo.DrugAllergy}
-            </p>
-            <p className="text-lg sm:text-xl text-gray-700">
-              <strong className="text-blue-900">เลขบัตรประชาชน:</strong> {patientInfo.IdCard || "-"}
             </p>
           </div>
         </div>

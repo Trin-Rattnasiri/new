@@ -41,14 +41,29 @@ export async function POST(req: Request) {
     // 🔐 Hash รหัสผ่าน
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 📝 เพิ่มข้อมูลลง MySQL
+    // 🔢 ดึง HN ล่าสุดจากฐานข้อมูล
+    const [hnResult] = await connection.execute(
+      "SELECT hn FROM user WHERE hn IS NOT NULL ORDER BY id DESC LIMIT 1"
+    );
+
+    let nextHNNumber = 1;
+    if ((hnResult as any[]).length > 0) {
+      const lastHN = (hnResult as any[])[0].hn; // เช่น "HN00000005"
+      const lastNumber = parseInt(lastHN.replace("HN", ""));
+      nextHNNumber = lastNumber + 1;
+    }
+
+    const newHN = `HN${String(nextHNNumber).padStart(8, "0")}`;
+
+    // 📝 เพิ่มข้อมูลลง MySQL พร้อม HN
     await connection.execute(
-      `INSERT INTO user (citizenId, phone, password, name, birthday, prefix) VALUES (?, ?, ?, ?, ?, ?)`,
-      [citizenId, phoneNumber, hashedPassword, name, birthday, prefix]
+      `INSERT INTO user (citizenId, phone, password, name, birthday, prefix, hn, createdAt) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [citizenId, phoneNumber, hashedPassword, name, birthday, prefix, newHN]
     );
 
     connection.release();
-    return NextResponse.json({ message: "สมัครสมาชิกสำเร็จ!" }, { status: 201 });
+    return NextResponse.json({ message: "สมัครสมาชิกสำเร็จ!", hn: newHN }, { status: 201 });
   } catch (error) {
     console.error("🚨 Signup Error:", error);
     return NextResponse.json({ error: "เกิดข้อผิดพลาดในการสมัคร" }, { status: 500 });

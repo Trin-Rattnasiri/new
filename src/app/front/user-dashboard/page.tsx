@@ -3,24 +3,33 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { LogOut, Calendar, History, User } from "lucide-react"
+import { LogOut, Calendar, History } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import UpcomingAppointment from "../component/UpcomingAppointment"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface UserInfo {
   prefix: string
   name: string
   citizenId: string
+  hn?: string
 }
 
 const DashboardPage = () => {
   const router = useRouter()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
+  const [bannerImages, setBannerImages] = useState<string[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  // ⏱ เปลี่ยนภาพทุก 10 วินาที
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % bannerImages.length)
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [bannerImages.length])
 
   useEffect(() => {
     const id = localStorage.getItem("citizenId")
@@ -30,6 +39,15 @@ const DashboardPage = () => {
         .then((data) => setUserInfo(data))
         .catch((err) => console.error("Error fetching profile:", err))
     }
+
+    // ดึงรูปภาพข่าวสารมาใช้แสดง
+    fetch("/api/admin/new")
+      .then(res => res.json())
+      .then(data => {
+        const urls = data.map((item: any) => item.imageUrl)
+        setBannerImages(urls)
+      })
+      .catch(err => console.error("Error loading banner images:", err))
   }, [])
 
   const avatarSrc = useMemo(() => {
@@ -73,20 +91,24 @@ const DashboardPage = () => {
         </Avatar>
         <div className="ml-3">
           <div className="font-bold text-sm">{userInfo?.name || ""}</div>
-          <div className="text-white text-sm bg-blue-700 px-2 py-0.5 rounded-md mt-1">HN {userInfo?.citizenId || "123456-78"}</div>
+          <div className="text-white text-sm bg-blue-700 px-2 py-0.5 rounded-md mt-1">
+            HN {userInfo?.hn || "HN00000000"}
+          </div>
         </div>
       </div>
 
-      {/* Banner */}
+      {/* Banner แบบ slideshow */}
       <div className="w-full mt-4 px-4">
         <div className="max-w-md mx-auto overflow-hidden shadow-lg rounded-xl bg-white">
-          <Image
-            src="/fight.jpg"
-            alt="โรงพยาบาลแม่จันร่วมต้านทุจริต"
-            width={800}
-            height={400}
-            className="w-full h-auto object-cover"
-          />
+          {bannerImages.length > 0 && (
+            <Image
+              src={bannerImages[currentIndex]}
+              alt="สไลด์ภาพโรงพยาบาล"
+              width={800}
+              height={400}
+              className="w-full h-48 object-cover transition-all duration-1000 ease-in-out"
+            />
+          )}
         </div>
       </div>
 

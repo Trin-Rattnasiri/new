@@ -1,18 +1,17 @@
-'use client';
+"use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   Home, 
   Users, 
   ShoppingCart, 
   Settings, 
   BarChart, 
-  HelpCircle,
+  LogOut,
   Menu,
   X,
-  LogOut
 } from 'lucide-react';
 
 import { cn } from "@/lib/utils";
@@ -34,22 +33,31 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 
-// Sidebar items configuration
+// ✅ เมนูด้านข้าง (path ไม่ซ้ำกันแล้ว)
 const sidebarItems = [
   { title: 'แดชบอร์ด', path: '/backend/admin-dashboard', icon: <Home size={20} /> },
   { title: 'เพิ่มแผนก', path: '/backend/admin-list', icon: <Users size={20} /> },
-  { title: 'เพิ่มslotเวลา', path: '/backend/admin-slot', icon: <ShoppingCart size={20} /> },
-  { title: 'booking', path: '/backend/admin-bookingcheck', icon: <BarChart size={20} /> },
+  { title: 'เพิ่ม slot เวลา', path: '/backend/admin-slot', icon: <ShoppingCart size={20} /> },
+  { title: 'ตรวจสอบการจอง', path: '/backend/admin-bookingcheck', icon: <BarChart size={20} /> },
   { title: 'ดูเวลาต่างๆ', path: '/backend/admin-view', icon: <Settings size={20} /> },
-  
+  { title: 'เปลี่ยนข่าวสาร', path: '/backend/admin-news', icon: <Settings size={20} /> },
 ];
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
+  };
+
+  const handleLogout = () => {
+    const confirmLogout = window.confirm("คุณต้องการออกจากระบบหรือไม่?");
+    if (confirmLogout) {
+      localStorage.clear();
+      router.push("/admin-login"); // แก้ path ตามจริงที่ใช้ login admin
+    }
   };
 
   return (
@@ -57,51 +65,32 @@ const Sidebar = () => {
       "h-screen bg-background border-r flex flex-col transition-all duration-300",
       collapsed ? "w-16" : "w-64"
     )}>
-      {/* Sidebar Header with Logo */}
+      {/* Logo & Collapse Toggle */}
       <div className="flex items-center justify-between p-4">
         {!collapsed ? (
-          <div className="flex items-center">
-            {/* Full Logo (with text) for expanded sidebar */}
-            <Image 
-              src="/logo.png" 
-              alt="Logo" 
-              width={120} 
-              height={40} 
-              className="object-contain" 
-            />
-          </div>
+          <Image src="/logo.png" alt="Logo" width={120} height={40} className="object-contain" />
         ) : (
-          <div className="mx-auto">
-            {/* Small Logo (icon only) for collapsed sidebar */}
-            <Image 
-              src="/logo-small.png" 
-              alt="Logo" 
-              width={28} 
-              height={28} 
-              className="object-contain" 
-            />
-          </div>
+          <Image src="/logo-small.png" alt="Logo" width={28} height={28} className="object-contain mx-auto" />
         )}
-        
         <Button variant="ghost" size="icon" onClick={toggleSidebar}>
           {collapsed ? <Menu size={20} /> : <X size={20} />}
         </Button>
       </div>
-      
+
       <Separator />
 
-      {/* Sidebar Navigation */}
+      {/* Navigation */}
       <nav className="mt-4 flex-1">
         <TooltipProvider>
           <ul className="space-y-1 px-2">
-            {sidebarItems.map((item) => {
+            {sidebarItems.map((item, index) => {
               const isActive = pathname === item.path;
               return (
-                <li key={item.path}>
+                <li key={`${item.path}-${index}`}>
                   {collapsed ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Link href={item.path} className="block">
+                        <Link href={item.path}>
                           <Button
                             variant={isActive ? "secondary" : "ghost"}
                             size="icon"
@@ -116,7 +105,7 @@ const Sidebar = () => {
                       </TooltipContent>
                     </Tooltip>
                   ) : (
-                    <Link href={item.path} className="block">
+                    <Link href={item.path}>
                       <Button
                         variant={isActive ? "secondary" : "ghost"}
                         className="w-full justify-start"
@@ -133,7 +122,7 @@ const Sidebar = () => {
         </TooltipProvider>
       </nav>
 
-      {/* Sidebar Footer */}
+      {/* Footer */}
       <div className="p-4 border-t">
         {collapsed ? (
           <Tooltip>
@@ -170,7 +159,7 @@ const Sidebar = () => {
                 <Settings className="mr-2 h-4 w-4" />
                 <span>บัญชีผู้ใช้</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>ออกจากระบบ</span>
               </DropdownMenuItem>

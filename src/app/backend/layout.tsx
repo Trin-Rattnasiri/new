@@ -1,8 +1,7 @@
 import React, { ReactNode } from 'react';
 import Sidebar from './sidebar';
 import { 
-  BellIcon, 
-  SearchIcon,
+  BellIcon,
   User,
   Settings
 } from 'lucide-react';
@@ -15,7 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -32,11 +30,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         <header className="border-b">
           <div className="flex h-16 items-center justify-between px-6">
             <div className="flex items-center gap-2 lg:gap-4">
-              <Input
-                type="search"
-                placeholder="ค้นหา..."
-                className="w-[200px] lg:w-[300px] hidden md:flex"
-              />
+              {/* Search input removed */}
             </div>
             <div className="flex items-center gap-4">
               <DropdownMenu>

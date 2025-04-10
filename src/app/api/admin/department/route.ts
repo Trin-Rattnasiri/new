@@ -22,14 +22,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'กรุณาระบุชื่อแผนก' }, { status: 400 });
     }
 
-    // เชื่อมต่อฐานข้อมูล
     connection = await getConnection();
 
-    // เพิ่มแผนก
     const query = 'INSERT INTO departments (name) VALUES (?)';
     const [result] = await connection.query(query, [name]);
 
-    // ตรวจสอบว่าได้เพิ่มแผนกสำเร็จ
     if ((result as mysql.ResultSetHeader).affectedRows > 0) {
       return NextResponse.json({ message: 'เพิ่มแผนกสำเร็จ' }, { status: 201 });
     } else {
@@ -40,37 +37,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการเพิ่มแผนก' }, { status: 500 });
   } finally {
     if (connection) {
-      await connection.end(); // ปิดการเชื่อมต่อเมื่อเสร็จสิ้น
+      await connection.end();
     }
   }
 }
+
 // DELETE - ลบแผนก
 export async function DELETE(req: Request) {
   let connection;
   try {
     const url = new URL(req.url);
     const departmentId = url.searchParams.get('departmentId');
-    
+
     if (!departmentId) {
       return NextResponse.json({ message: 'กรุณาระบุ departmentId' }, { status: 400 });
     }
 
-    // เชื่อมต่อฐานข้อมูล
     connection = await getConnection();
 
-    // ปิดการตรวจสอบ foreign key
     await connection.query('SET FOREIGN_KEY_CHECKS = 0;');
 
-    // ลบแผนก
     const query = 'DELETE FROM departments WHERE id = ?';
     const [result] = await connection.query(query, [departmentId]);
 
-    // ตรวจสอบว่า affectedRows มากกว่า 0 หมายถึงมีการลบแผนกสำเร็จ
     if ((result as mysql.ResultSetHeader).affectedRows === 0) {
       return NextResponse.json({ message: 'ไม่พบแผนกที่ต้องการลบ' }, { status: 404 });
     }
 
-    // เปิดการตรวจสอบ foreign key หลังจากลบข้อมูลเสร็จ
     await connection.query('SET FOREIGN_KEY_CHECKS = 1;');
 
     return NextResponse.json({ message: 'ลบแผนกสำเร็จ' }, { status: 200 });
@@ -79,7 +72,37 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการลบแผนก' }, { status: 500 });
   } finally {
     if (connection) {
-      await connection.end(); // ปิดการเชื่อมต่อเมื่อเสร็จสิ้น
+      await connection.end();
+    }
+  }
+}
+
+// PUT - แก้ไขชื่อแผนก
+export async function PUT(req: Request) {
+  let connection;
+  try {
+    const body = await req.json();
+    const { id, name } = body;
+
+    if (!id || !name) {
+      return NextResponse.json({ message: 'กรุณาระบุ id และชื่อแผนก' }, { status: 400 });
+    }
+
+    connection = await getConnection();
+    const query = 'UPDATE departments SET name = ? WHERE id = ?';
+    const [result] = await connection.query(query, [name, id]);
+
+    if ((result as mysql.ResultSetHeader).affectedRows === 0) {
+      return NextResponse.json({ message: 'ไม่พบแผนกที่ต้องการแก้ไข' }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: 'แก้ไขชื่อแผนกสำเร็จ' }, { status: 200 });
+  } catch (error) {
+    console.error('Error updating department:', error);
+    return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการแก้ไขแผนก' }, { status: 500 });
+  } finally {
+    if (connection) {
+      await connection.end();
     }
   }
 }
