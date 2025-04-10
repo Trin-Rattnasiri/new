@@ -95,23 +95,27 @@ const DashboardPage = () => {
 
       {/* รายการหลัก */}
       <div className="w-full max-w-md mt-6 px-4">
-        <div className="font-bold text-slate-800 mb-2">รายการหลัก</div>
-        <div className="space-y-5">
+        <h3 className="text-xl font-bold text-gray-800 mb-3">รายการหลัก</h3>
+        <div className="grid grid-cols-1 gap-4">
           <Link href="/front/user-booking" className="block">
-            <div className="bg-white rounded-xl p-4 flex items-center shadow-md">
-              <Calendar className="text-blue-500 mr-3" />
-              <div>
-                <div className="text-slate-800 font-medium">นัดหมายออนไลน์</div>
-                <div className="text-sm text-slate-500">จองคิวและนัดหมายล่วงหน้า</div>
+            <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200 h-full min-h-[100px] flex flex-col justify-center hover:bg-blue-50 transition-all">
+              <div className="flex items-center">
+                <Calendar className="text-blue-500 mr-3" />
+                <div>
+                  <div className="text-slate-800 font-medium">นัดหมายออนไลน์</div>
+                  <div className="text-sm text-slate-500">จองคิวและนัดหมายล่วงหน้า</div>
+                </div>
               </div>
             </div>
           </Link>
           <Link href="/front/user-history" className="block">
-            <div className="bg-white rounded-xl p-4 flex items-center shadow-md">
-              <History className="text-teal-500 mr-3" />
-              <div>
-                <div className="text-slate-800 font-medium">ประวัติการรักษา</div>
-                <div className="text-sm text-slate-500">ดูประวัติการรักษาของคุณ</div>
+            <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200 h-full min-h-[100px] flex flex-col justify-center hover:bg-blue-50 transition-all">
+              <div className="flex items-center">
+                <History className="text-teal-500 mr-3" />
+                <div>
+                  <div className="text-slate-800 font-medium">ประวัติการรักษา</div>
+                  <div className="text-sm text-slate-500">ดูประวัติการรักษาของคุณ</div>
+                </div>
               </div>
             </div>
           </Link>
