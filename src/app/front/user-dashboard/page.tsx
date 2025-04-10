@@ -92,7 +92,7 @@ const DashboardPage = () => {
         <div className="ml-3">
           <div className="font-bold text-sm">{userInfo?.name || ""}</div>
           <div className="text-white text-sm bg-blue-700 px-2 py-0.5 rounded-md mt-1">
-            HN {userInfo?.hn || "HN00000000"}
+             {userInfo?.hn || "HN00000000"}
           </div>
         </div>
       </div>
