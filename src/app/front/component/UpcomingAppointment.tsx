@@ -1,5 +1,7 @@
 'use client'
 
+import { FiChevronLeft } from "react-icons/fi"
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -18,6 +20,7 @@ export default function UpcomingAppointment() {
   const router = useRouter()
   const createdBy = typeof window !== "undefined" ? localStorage.getItem("citizenId") : ""
 
+  // ดึงข้อมูลการนัดหมายจาก API
   useEffect(() => {
     const fetchAppointments = async () => {
       if (!createdBy) return
@@ -37,6 +40,7 @@ export default function UpcomingAppointment() {
     fetchAppointments()
   }, [createdBy])
 
+  // หากไม่มีการนัดหมายจะแสดงข้อความนี้
   if (!appointments.length) {
     return <p className="mt-4 text-gray-500 text-center">ยังไม่มีนัดหมาย</p>
   }
@@ -46,6 +50,7 @@ export default function UpcomingAppointment() {
       <h3 className="text-xl font-bold text-gray-800 mb-3"> นัดหมายที่จะถึง</h3>
 
       <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200">
+        {/* การแสดงรายการการนัดหมาย */}
         {appointments.map((appointment) => (
           <div
             key={appointment.booking_reference_number}
@@ -78,6 +83,7 @@ export default function UpcomingAppointment() {
                 <span>{appointment.department}</span>
               </div>
 
+              {/* สถานะการจอง */}
               <div className={`mt-1 font-medium ${
                 appointment.status === "pending"
                   ? "text-yellow-600"

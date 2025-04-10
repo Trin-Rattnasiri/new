@@ -18,9 +18,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log("📌 Data received from frontend:", body);
 
-    const { citizenId, phoneNumber, password, name, birthday, prefix } = body;
+    const { citizenId, phoneNumber, password, name, birthday } = body;
 
-    if (!citizenId || !phoneNumber || !password || !name || !birthday || !prefix) {
+    if (!citizenId || !phoneNumber || !password || !name || !birthday) {
       console.error("❌ Missing required fields");
       return NextResponse.json({ error: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 });
     }
@@ -57,9 +57,9 @@ export async function POST(req: Request) {
 
     // 📝 เพิ่มข้อมูลลง MySQL พร้อม HN
     await connection.execute(
-      `INSERT INTO user (citizenId, phone, password, name, birthday, prefix, hn, createdAt) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [citizenId, phoneNumber, hashedPassword, name, birthday, prefix, newHN]
+      `INSERT INTO user (citizenId, phone, password, name, birthday, hn, createdAt) 
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [citizenId, phoneNumber, hashedPassword, name, birthday, newHN]
     );
 
     connection.release();

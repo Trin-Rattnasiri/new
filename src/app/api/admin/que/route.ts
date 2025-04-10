@@ -17,51 +17,51 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const {
-      user_name,
+      user_name,       // จะเก็บลง column `name`
       department_id,
       slot_id,
-      phone_number,
-      id_card_number,
-      created_by, // ✅ รับค่า created_by จากผู้ล็อกอิน
+      id_card_number,  // จะเก็บลง column `hn`
+      created_by,
     } = body;
 
-    if (!user_name || !department_id || !slot_id || !phone_number || !id_card_number) {
+    if (!user_name || !department_id || !slot_id || !id_card_number) {
       return NextResponse.json({ message: 'กรุณากรอกข้อมูลให้ครบ' }, { status: 400 });
     }
 
     connection = await getConnection();
 
-    // ตรวจสอบจำนวนที่นั่งใน slot
+    // ตรวจสอบที่นั่งว่างและดึง slot_date ด้วย
     const slotQuery = `
-      SELECT available_seats, start_time, end_time
+      SELECT available_seats, start_time, end_time, slot_date
       FROM slots
       WHERE id = ?
     `;
     const [slotResult] = await connection.query(slotQuery, [slot_id]);
     const slotData = (slotResult as mysql.RowDataPacket[])[0];
-    const availableSeats = slotData?.available_seats;
 
-    if (availableSeats <= 0) {
+    if (!slotData || slotData.available_seats <= 0) {
       return NextResponse.json({ message: 'ที่นั่งเต็มแล้ว' }, { status: 400 });
     }
 
-    // ✅ เพิ่ม created_by ในการบันทึก
+    const { available_seats, start_time, end_time, slot_date } = slotData;
+
+    // บันทึกการจองลง bookings
     const insertQuery = `
-      INSERT INTO bookings (created_by, user_name, department_id, slot_id, phone_number, id_card_number, booking_date, status)
-      VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE, 'pending')
+      INSERT INTO bookings (created_by, name, department_id, slot_id, hn, booking_date, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending')
     `;
     const [result] = await connection.query(insertQuery, [
-      created_by || null, // ถ้าไม่มีให้ใส่เป็น null
+      created_by || null,
       user_name,
       department_id,
       slot_id,
-      phone_number,
       id_card_number,
+      slot_date, // ✅ ใช้ slot_date จากฐานข้อมูล
     ]);
 
     if ((result as mysql.ResultSetHeader).affectedRows > 0) {
       const bookingId = (result as mysql.ResultSetHeader).insertId;
-      const bookingReferenceNumber = `${new Date().getFullYear()}${('0' + (new Date().getMonth() + 1)).slice(-2)}${('0' + new Date().getDate()).slice(-2)}-${('00000' + bookingId).slice(-5)}`;
+      const bookingReferenceNumber = `${slot_date.toISOString().slice(0, 10).replace(/-/g, '')}-${String(bookingId).padStart(5, '0')}`;
 
       // อัปเดต booking_reference_number
       const updateQuery = `
@@ -71,15 +71,7 @@ export async function POST(req: Request) {
       `;
       await connection.query(updateQuery, [bookingReferenceNumber, bookingId]);
 
-      const bookingDateQuery = `
-        SELECT booking_date, booking_reference_number
-        FROM bookings
-        WHERE id = ?
-      `;
-      const [bookingDateResult] = await connection.query(bookingDateQuery, [bookingId]);
-      const bookingDate = (bookingDateResult as mysql.RowDataPacket[])[0].booking_date;
-
-      // ลดจำนวนที่นั่ง
+      // อัปเดตจำนวนที่ว่าง
       const updateSeatsQuery = `
         UPDATE slots
         SET available_seats = available_seats - 1
@@ -87,12 +79,12 @@ export async function POST(req: Request) {
       `;
       await connection.query(updateSeatsQuery, [slot_id]);
 
-      const timeSlotMessage = `${slotData.start_time}-${slotData.end_time} (จำนวนที่ว่าง: ${availableSeats - 1})`;
+      const timeSlotMessage = `${start_time}-${end_time} (จำนวนที่ว่าง: ${available_seats - 1})`;
 
       return NextResponse.json({
         message: 'จองคิวสำเร็จ',
         bookingReferenceNumber,
-        bookingDate,
+        bookingDate: slot_date,
         timeSlot: timeSlotMessage,
         id: bookingId,
       }, { status: 201 });

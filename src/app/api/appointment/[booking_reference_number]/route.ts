@@ -1,84 +1,116 @@
-import { NextResponse } from "next/server";
-import mysql from "mysql2/promise";
+import { NextResponse } from 'next/server';
+import mysql from 'mysql2/promise';
 
-// ✅ Connection Pool
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+// ฟังก์ชันเชื่อมต่อฐานข้อมูล
+const getConnection = async () => {
+  return await mysql.createConnection({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+  });
+};
 
-// ✅ GET: ดึงข้อมูลใบนัดด้วย booking_reference_number
+// GET /api/appointment/[booking_reference_number]
 export async function GET(
   req: Request,
   { params }: { params: { booking_reference_number: string } }
 ) {
-  const connection = await pool.getConnection();
+  const { booking_reference_number } = params;
+  console.log("📌 รับค่า booking_reference_number:", booking_reference_number);
+
   try {
-    const { booking_reference_number } = params;
+    const connection = await getConnection();
 
-    if (!booking_reference_number) {
-      return NextResponse.json({ error: "กรุณาระบุรหัสใบนัด" }, { status: 400 });
-    }
-
-    const [rows] = await connection.query(
-      `
-        SELECT b.*, d.name AS department_name,
-               s.slot_date, s.start_time, s.end_time
-        FROM bookings b
-        JOIN departments d ON b.department_id = d.id
-        JOIN slots s ON b.slot_id = s.id
-        WHERE b.booking_reference_number = ?
-        LIMIT 1
-      `,
+    const [rows] = await connection.execute(
+      `SELECT 
+        b.id,
+        b.name,
+        b.hn,
+        b.status,
+        b.booking_reference_number,
+        b.booking_date,
+        d.name AS department_name,
+        s.slot_date,
+        s.start_time,
+        s.end_time,
+        u.phone AS phone_number        -- ✅ เพิ่มตรงนี้
+      FROM bookings b
+      LEFT JOIN departments d ON b.department_id = d.id
+      LEFT JOIN slots s ON b.slot_id = s.id
+      LEFT JOIN user u ON b.created_by = u.citizenId    -- ✅ join กับ user ด้วย citizenId
+      WHERE b.booking_reference_number = ?
+      LIMIT 1`,
       [booking_reference_number]
     );
+    
 
-    if ((rows as any[]).length === 0) {
-      return NextResponse.json({ error: "ไม่พบใบนัด" }, { status: 404 });
+    await connection.end();
+
+    const result = (rows as any[])[0];
+
+    if (!result) {
+      return NextResponse.json({ message: 'ไม่พบใบนัดในระบบ' }, { status: 404 });
     }
 
-    return NextResponse.json(rows[0]);
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    console.error("🚨 GET API ERROR:", error);
-    return NextResponse.json({ error: "เกิดข้อผิดพลาด" }, { status: 500 });
-  } finally {
-    connection.release();
+    console.error('❌ Error fetching appointment by reference:', error);
+    return NextResponse.json(
+      { error: 'เกิดข้อผิดพลาดในการดึงข้อมูลใบนัด' },
+      { status: 500 }
+    );
   }
 }
 
-// ✅ DELETE: ลบใบนัดด้วย booking_reference_number
+// DELETE /api/appointment/[booking_reference_number]
 export async function DELETE(
   req: Request,
   { params }: { params: { booking_reference_number: string } }
 ) {
-  const connection = await pool.getConnection();
+  const { booking_reference_number } = params;
 
   try {
-    const { booking_reference_number } = params;
+    const connection = await getConnection();
+    await connection.beginTransaction();
 
-    if (!booking_reference_number) {
-      return NextResponse.json({ error: "กรุณาระบุรหัสใบนัด" }, { status: 400 });
-    }
-
-    const [result] = await connection.query(
-      "DELETE FROM bookings WHERE booking_reference_number = ?",
+    // ตรวจสอบว่า booking มีจริงหรือไม่ และดึง slot_id
+    const [rows] = await connection.execute(
+      `SELECT id, slot_id FROM bookings WHERE booking_reference_number = ?`,
       [booking_reference_number]
     );
 
-    if ((result as any).affectedRows === 0) {
-      return NextResponse.json({ message: "ไม่พบใบนัด" }, { status: 404 });
+    const booking = (rows as any[])[0];
+
+    if (!booking) {
+      await connection.end();
+      return NextResponse.json({ message: "ไม่พบใบนัดในระบบ" }, { status: 404 });
     }
 
-    return NextResponse.json({ message: "ลบใบนัดสำเร็จ" });
+    const bookingId = booking.id;
+    const slotId = booking.slot_id;
+
+    // ลบ booking
+    await connection.execute(
+      `DELETE FROM bookings WHERE id = ?`,
+      [bookingId]
+    );
+
+    // คืนจำนวนที่นั่ง
+    await connection.execute(
+      `UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?`,
+      [slotId]
+    );
+
+    await connection.commit();
+    await connection.end();
+
+    return NextResponse.json({ message: "ลบใบนัดสำเร็จ" }, { status: 200 });
   } catch (error) {
-    console.error("🚨 DELETE API ERROR:", error);
-    return NextResponse.json({ message: "เกิดข้อผิดพลาดในการลบ" }, { status: 500 });
-  } finally {
-    connection.release();
+    console.error("❌ Error deleting appointment:", error);
+    return NextResponse.json(
+      { error: "เกิดข้อผิดพลาดในการลบใบนัด" },
+      { status: 500 }
+    );
   }
 }

@@ -41,6 +41,7 @@ const sidebarItems = [
   { title: 'ตรวจสอบการจอง', path: '/backend/admin-bookingcheck', icon: <BarChart size={20} /> },
   { title: 'ดูเวลาต่างๆ', path: '/backend/admin-view', icon: <Settings size={20} /> },
   { title: 'เปลี่ยนข่าวสาร', path: '/backend/admin-news', icon: <Settings size={20} /> },
+  { title: 'ตารางการจอง', path: '/backend/admin-Panel', icon: <Settings size={20} /> },
 ];
 
 const Sidebar = () => {

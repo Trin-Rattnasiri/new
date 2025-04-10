@@ -18,30 +18,31 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const createdBy = searchParams.get("created_by")
 
+    // ตรวจสอบว่าได้ค่าของ created_by หรือไม่
     if (!createdBy) {
       return NextResponse.json({ error: "ไม่พบ created_by" }, { status: 400 })
     }
 
+    // ดึงข้อมูลการจองจากฐานข้อมูล
     const [rows] = await connection.query(
-      `
-      SELECT 
-  b.booking_reference_number, 
-  b.status, 
-  b.user_name,          -- ✅ เพิ่มตรงนี้
-  s.slot_date, 
-  s.start_time, 
-  s.end_time, 
-  d.name AS department
-FROM bookings b
-JOIN slots s ON b.slot_id = s.id
-JOIN departments d ON b.department_id = d.id
-WHERE b.created_by = ?
-AND s.slot_date >= CURDATE()
-ORDER BY s.slot_date ASC, s.start_time ASC
-
-      `,
+      `SELECT 
+        b.booking_reference_number, 
+        b.status, 
+        u.name AS user_name,          
+        s.slot_date, 
+        s.start_time, 
+        s.end_time, 
+        d.name AS department
+      FROM bookings b
+      JOIN slots s ON b.slot_id = s.id
+      JOIN departments d ON b.department_id = d.id
+      LEFT JOIN user u ON b.created_by = u.citizenId
+      WHERE b.created_by = ?
+      AND s.slot_date >= CURDATE()
+      ORDER BY s.slot_date ASC, s.start_time ASC`,
       [createdBy]
-    )
+    );
+    
 
     return NextResponse.json(rows)
   } catch (error) {

@@ -2,17 +2,15 @@ import { NextResponse } from "next/server";
 import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 
-// ✅ ตั้งค่าการเชื่อมต่อ MySQL
 const pool = mysql.createPool({
   host: "localhost",
   user: "root",
   password: "",
-  database: "hospital_booking", 
+  database: "hospital_booking",
   waitForConnections: true,
   connectionLimit: 10,
 });
 
-// ✅ POST: ล็อกอิน
 export async function POST(req: Request) {
   try {
     const { citizenId, password } = await req.json();
@@ -25,7 +23,7 @@ export async function POST(req: Request) {
 
     const connection = await pool.getConnection();
     console.log("🔍 Checking user in database...");
-    
+
     const [rows] = await connection.execute(
       "SELECT * FROM user WHERE citizenId = ?",
       [citizenId]
@@ -49,11 +47,13 @@ export async function POST(req: Request) {
     }
 
     console.log("✅ Login successful!");
-    
-    // ✅ เพิ่ม citizenId ใน response เพื่อให้ frontend ใช้
-    return NextResponse.json({ 
-      message: "เข้าสู่ระบบสำเร็จ!", 
-      citizenId: user.citizenId 
+
+    // ✅ ตอบกลับข้อมูลที่ frontend ต้องใช้
+    return NextResponse.json({
+      message: "เข้าสู่ระบบสำเร็จ!",
+      citizenId: user.citizenId,
+      name: user.name,
+      hn: user.hn,
     }, { status: 200 });
 
   } catch (error) {
@@ -61,4 +61,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" }, { status: 500 });
   }
 }
-

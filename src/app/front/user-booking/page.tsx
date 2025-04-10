@@ -1,4 +1,3 @@
-
 "use client";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -37,7 +36,6 @@ const Page = () => {
   const [dates, setDates] = useState<DateSlot[]>([]);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [userName, setUserName] = useState<string>("");
-  const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [idCardNumber, setIdCardNumber] = useState<string>("");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -46,18 +44,18 @@ const Page = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log("👤 citizenId จาก localStorage:", localStorage.getItem("citizenId"));
+    // ✅ ดึงชื่อและ HN จาก localStorage
+    const storedName = localStorage.getItem("userName");
+    const storedHN = localStorage.getItem("hn");
+    if (storedName) setUserName(storedName);
+    if (storedHN) setIdCardNumber(storedHN);
+
     async function fetchDepartments() {
       try {
         const response = await fetch("/api/bookings");
         const data = await response.json();
-        console.log("Fetched departments:", data);
-        if (Array.isArray(data)) {
-          setDepartments(data);
-        } else {
-          console.error("Departments data is not an array:", data);
-          setDepartments([]);
-        }
+        if (Array.isArray(data)) setDepartments(data);
+        else setDepartments([]);
       } catch (error) {
         console.error("Error fetching departments:", error);
         setDepartments([]);
@@ -75,7 +73,6 @@ const Page = () => {
     try {
       const response = await fetch(`/api/bookings?departmentId=${departmentId}`);
       const data = await response.json();
-      console.log("Fetched dates:", data);
       setDates(data);
     } catch (error) {
       console.error("Error fetching dates:", error);
@@ -98,7 +95,6 @@ const Page = () => {
 
   const handleDepartmentChange = (selectedOption: { value: string; label: string } | null) => {
     const value = selectedOption ? selectedOption.value : "";
-    console.log("Selected department:", value);
     setSelectedDepartment(value);
     setSelectedDate(undefined);
     setSelectedSlot("");
@@ -113,7 +109,7 @@ const Page = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userName || !selectedDepartment || !selectedSlot || !selectedDate || !phoneNumber || !idCardNumber) {
+    if (!selectedDepartment || !selectedSlot || !selectedDate) {
       alert("กรุณากรอกข้อมูลให้ครบ");
       return;
     }
@@ -128,7 +124,6 @@ const Page = () => {
           user_name: userName,
           department_id: selectedDepartment,
           slot_id: selectedSlot,
-          phone_number: phoneNumber,
           id_card_number: idCardNumber,
           created_by,
         }),
@@ -159,19 +154,14 @@ const Page = () => {
     router.push(`/appointment/${bookingReference}`);
   };
 
-  // วันที่ที่มีอยู่ในฐานข้อมูล
   const availableDates = dates.map((date) => parseISO(date.slot_date));
 
-  // ฟังก์ชันสำหรับตรวจสอบว่าวันที่ควรถูกปิดใช้งานหรือไม่
   const isDateDisabled = (date: Date) => {
-    // ปิดใช้งานถ้าเป็นวันที่ผ่านมาแล้ว
     const isPastDate = date < new Date();
-    // ปิดใช้งานถ้าไม่มีใน availableDates
     const isUnavailable = !availableDates.some((availableDate) => isSameDay(date, availableDate));
     return isPastDate || isUnavailable;
   };
 
-  // ฟังก์ชันสำหรับตรวจสอบว่าวันที่ควรเป็นสีเทา (ไม่มีในฐานข้อมูล)
   const isDateUnavailable = (date: Date) => {
     return !availableDates.some((availableDate) => isSameDay(date, availableDate));
   };
@@ -186,19 +176,15 @@ const Page = () => {
       <div className="max-w-md mx-auto">
         <Card className="border-0 shadow-sm">
           <CardHeader className="space-y-1">
-            <Button
-              onClick={() => router.push(backTo)}
-              variant="ghost"
-              className="w-fit hover:bg-blue-100"
-            >
+            <Button onClick={() => router.push(backTo)} variant="ghost" className="w-fit hover:bg-blue-100">
               <ArrowLeft className="mr-2 h-4 w-4" /> กลับ
             </Button>
             <CardTitle className="text-3xl font-bold text-blue-900 flex items-center gap-2">
               <Calendar className="h-6 w-6" /> นัดหมายออนไลน์
             </CardTitle>
-            <p className="text-sm text-gray-500">กรุณากรอกข้อมูลเพื่อทำการจองคิว</p>
+            <p className="text-sm text-gray-500">กรุณาเลือกแผนก วันที่ และเวลา</p>
           </CardHeader>
-          
+
           <CardContent className="space-y-4">
             <Card className="bg-blue-50">
               <CardContent className="p-4">
@@ -213,10 +199,7 @@ const Page = () => {
                     onChange={(e) => setBookingReference(e.target.value)}
                     className="flex-1 border-gray-300"
                   />
-                  <Button 
-                    onClick={handleViewAppointment}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
+                  <Button onClick={handleViewAppointment} className="bg-blue-600 hover:bg-blue-700">
                     ตรวจสอบ
                   </Button>
                 </div>
@@ -265,11 +248,11 @@ const Page = () => {
                       mode="single"
                       selected={selectedDate}
                       onSelect={handleDateChange}
-                      disabled={(date: Date) => isDateDisabled(date)}
+                      disabled={isDateDisabled}
                       locale={th}
                       modifiers={{
                         available: (date: Date) => !isDateUnavailable(date),
-                        unavailable: (date: Date) => isDateUnavailable(date),
+                        unavailable: isDateUnavailable,
                       }}
                       modifiersStyles={{
                         available: { backgroundColor: "#dbeafe", color: "#1e40af" },
@@ -300,42 +283,6 @@ const Page = () => {
                     <p className="col-span-2 text-sm text-gray-500">ไม่มีช่วงเวลาว่าง</p>
                   )}
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="userName">ชื่อ</Label>
-                <Input
-                  id="userName"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  required
-                  className="border-gray-300"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="phoneNumber">เบอร์โทรศัพท์</Label>
-                <Input
-                  id="phoneNumber"
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  pattern="[0-9]{10}"
-                  required
-                  className="border-gray-300"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="idCardNumber">เลขบัตรประชาชน</Label>
-                <Input
-                  id="idCardNumber"
-                  value={idCardNumber}
-                  onChange={(e) => setIdCardNumber(e.target.value)}
-                  pattern="[0-9]{13}"
-                  required
-                  className="border-gray-300"
-                />
               </div>
 
               <Button

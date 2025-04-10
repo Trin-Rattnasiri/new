@@ -18,8 +18,9 @@ export async function GET(req: Request) {
 
   const connection = await pool.getConnection()
   try {
+    // ไม่ดึง prefix ออกจากผลลัพธ์
     const [rows] = await connection.query(
-      `SELECT citizenId, name, prefix, phone, birthday, hn FROM user WHERE citizenId = ?`,
+      `SELECT citizenId, name, phone, birthday, hn FROM user WHERE citizenId = ?`,
       [citizenId]
     )
 

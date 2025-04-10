@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { FiChevronLeft } from "react-icons/fi"
 import Link from "next/link"
@@ -14,6 +14,7 @@ interface PatientInfo {
   bloodType: string
   DrugAllergy: string
   chronicDisease: string
+  phone: string // เพิ่มข้อมูลเบอร์โทรศัพท์
 }
 
 const MedicalHistoryPage = () => {
@@ -28,6 +29,7 @@ const MedicalHistoryPage = () => {
     bloodType: "B",
     DrugAllergy: "NSAIDs",
     chronicDisease: "ไม่มี",
+    phone: "", // เริ่มต้น phone
   })
 
   useEffect(() => {
@@ -53,6 +55,7 @@ const MedicalHistoryPage = () => {
             bloodType: "B",
             DrugAllergy: "NSAIDs",
             chronicDisease: "ไม่มี",
+            phone: data.phone || "-", // ดึงเบอร์โทรจาก API
           })
         })
     }
@@ -150,6 +153,9 @@ const MedicalHistoryPage = () => {
             </p>
             <p className="text-lg sm:text-xl text-gray-700">
               <strong className="text-blue-900">ประวัติการแพ้ยา:</strong> {patientInfo.DrugAllergy}
+            </p>
+            <p className="text-lg sm:text-xl text-gray-700">
+              <strong className="text-blue-900">เบอร์โทรศัพท์:</strong> {patientInfo.phone || "-"} {/* แสดงเบอร์โทรศัพท์ */}
             </p>
           </div>
         </div>

@@ -33,10 +33,20 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        alert("✅ เข้าสู่ระบบสำเร็จ!");
-        console.log("📌 citizenId ที่จะเก็บ:", citizenId);
-        localStorage.setItem("citizenId", citizenId);
+        const data = await res.json(); // ✅ สมมุติว่า backend ส่งกลับ: { name: "ชื่อ", hn: "HN1234" }
 
+        // ✅ เก็บข้อมูลใน localStorage
+        localStorage.setItem("citizenId", citizenId);
+        localStorage.setItem("userName", data.name); // 👈 ต้องแน่ใจว่า backend ส่ง `name`
+        localStorage.setItem("hn", data.hn);         // 👈 และส่ง `hn` กลับมาด้วย
+
+        console.log("✅ เข้าสู่ระบบแล้ว:", {
+          citizenId,
+          userName: data.name,
+          hn: data.hn,
+        });
+
+        alert("✅ เข้าสู่ระบบสำเร็จ!");
         router.push("/front/user-dashboard");
       } else {
         alert("❌ เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง");
@@ -50,7 +60,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-white px-4">
-      {/* Logo */}
       <Image
         src="/24.png"
         alt="โรงพยาบาลแม่จัน"
@@ -60,11 +69,9 @@ export default function LoginPage() {
         priority
       />
 
-      {/* Card */}
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-200 p-8 space-y-6">
         <h2 className="text-2xl font-bold text-blue-800 text-center">เข้าสู่ระบบ</h2>
 
-        {/* Citizen ID */}
         <div>
           <label htmlFor="citizenId" className="block mb-1 text-gray-700 font-medium">
             เลขประจำตัวประชาชน
@@ -80,7 +87,6 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* Password */}
         <div>
           <label htmlFor="password" className="block mb-1 text-gray-700 font-medium">
             รหัสผ่าน
@@ -104,7 +110,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Login button */}
         <button
           onClick={handleLogin}
           disabled={loading}
@@ -117,7 +122,6 @@ export default function LoginPage() {
           {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
         </button>
 
-        {/* Sign up link */}
         <p className="text-center text-gray-600">
           ยังไม่มีบัญชี?{" "}
           <Link href="/front/user-signup" className="text-blue-700 hover:underline font-medium">
@@ -126,7 +130,6 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Footer */}
       <footer className="mt-8 text-sm text-gray-500">© 2025 โรงพยาบาลแม่จัน | All Rights Reserved</footer>
     </div>
   );

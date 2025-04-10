@@ -7,9 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
-// Types
 interface Department {
   id: number;
   name: string;
@@ -27,6 +30,7 @@ interface Slot {
 interface Booking {
   id: number;
   user_name: string;
+  hn: string;
   phone_number: string;
   id_card_number: string;
   status: 'pending' | 'confirmed' | 'cancelled';
@@ -48,125 +52,88 @@ export default function AppointmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
-  // Fetch departments on component mount
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
         const response = await fetch('/api/admin/appointment');
-        if (!response.ok) {
-          throw new Error('Failed to fetch departments');
-        }
+        if (!response.ok) throw new Error('Failed to fetch departments');
         const data = await response.json();
         setDepartments(data.departments);
-        setLoading(false);
       } catch (err) {
         setError('Error fetching departments');
-        setLoading(false);
         console.error(err);
+      } finally {
+        setLoading(false);
       }
     };
-
     fetchDepartments();
   }, []);
 
-  // Fetch slots when department is selected
   const handleDepartmentChange = async (value: string) => {
     setSelectedDepartment(value);
     setSelectedSlot('');
     setBookings([]);
-    
     try {
       setLoading(true);
       const response = await fetch('/api/admin/appointment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ departmentId: value }),
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch slots');
-      }
-      
+      if (!response.ok) throw new Error('Failed to fetch slots');
       const data = await response.json();
       setSlots(data.slots);
-      setLoading(false);
     } catch (err) {
       setError('Error fetching slots');
-      setLoading(false);
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Fetch bookings when slot is selected
   const handleSlotChange = async (value: string) => {
     setSelectedSlot(value);
-    
     try {
       setLoading(true);
       const response = await fetch('/api/admin/appointment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           departmentId: selectedDepartment,
-          slotId: value 
+          slotId: value,
         }),
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
-      }
-      
+      if (!response.ok) throw new Error('Failed to fetch bookings');
       const data = await response.json();
       setBookings(data.bookings);
-      setLoading(false);
     } catch (err) {
       setError('Error fetching bookings');
-      setLoading(false);
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Update booking status
   const updateBookingStatus = async (bookingId: number, status: 'pending' | 'confirmed' | 'cancelled') => {
     try {
       const response = await fetch('/api/admin/appointment', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          bookingId,
-          status 
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, status }),
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update booking status');
-      }
-      
-      // Update the local state after successful update
-      setBookings(bookings.map(booking => 
-        booking.id === bookingId ? { ...booking, status } : booking
-      ));
-      
-      // Refresh the slots data to get updated available seats
-      if (selectedDepartment) {
-        const slotsResponse = await fetch('/api/admin/appointment', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ departmentId: selectedDepartment }),
-        });
-        
-        if (slotsResponse.ok) {
-          const data = await slotsResponse.json();
-          setSlots(data.slots);
-        }
+      if (!response.ok) throw new Error('Failed to update status');
+
+      setBookings(bookings.map(b => b.id === bookingId ? { ...b, status } : b));
+
+      // Refresh slots
+      const slotRes = await fetch('/api/admin/appointment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ departmentId: selectedDepartment }),
+      });
+      if (slotRes.ok) {
+        const data = await slotRes.json();
+        setSlots(data.slots);
       }
     } catch (err) {
       setError('Error updating booking status');
@@ -174,68 +141,37 @@ export default function AppointmentPage() {
     }
   };
 
-  // Delete booking
   const deleteBooking = async (bookingId: number) => {
     try {
       setIsDeleting(true);
-      const response = await fetch(`/api/admin/appointment?bookingId=${bookingId}`, {
-        method: 'DELETE',
+      const response = await fetch(`/api/admin/appointment?bookingId=${bookingId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete booking');
+
+      setBookings(bookings.filter(b => b.id !== bookingId));
+      const slotRes = await fetch('/api/admin/appointment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ departmentId: selectedDepartment }),
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete booking');
-      }
-      
-      // Remove the deleted booking from the state
-      setBookings(bookings.filter(booking => booking.id !== bookingId));
-      setIsDeleting(false);
-      
-      // Refresh the slots data to get updated available seats
-      if (selectedDepartment) {
-        const slotsResponse = await fetch('/api/admin/appointment', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ departmentId: selectedDepartment }),
-        });
-        
-        if (slotsResponse.ok) {
-          const data = await slotsResponse.json();
-          setSlots(data.slots);
-        }
+      if (slotRes.ok) {
+        const data = await slotRes.json();
+        setSlots(data.slots);
       }
     } catch (err) {
       setError('Error deleting booking');
-      setIsDeleting(false);
       console.error(err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'dd/MM/yyyy');
-    } catch (error) {
-      return dateString;
-    }
-  };
-
-  // Format time for display
-  const formatTime = (timeString: string) => {
-    if (!timeString || timeString === '00:00:00') return 'N/A';
-    return timeString.substring(0, 5);
-  };
-
-  // Get status badge color
+  const formatDate = (str: string) => format(new Date(str), 'dd/MM/yyyy');
+  const formatTime = (time: string) => time?.substring(0, 5) || 'N/A';
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-green-500';
-      case 'cancelled':
-        return 'bg-red-500';
-      default:
-        return 'bg-yellow-500';
+      case 'confirmed': return 'bg-green-500';
+      case 'cancelled': return 'bg-red-500';
+      default: return 'bg-yellow-500';
     }
   };
 
@@ -250,7 +186,6 @@ export default function AppointmentPage() {
           {error && <p className="text-red-500">{error}</p>}
 
           <div className="space-y-6">
-            {/* Department Selection */}
             <div>
               <label className="block text-sm font-medium mb-2">Select Department</label>
               <Select value={selectedDepartment} onValueChange={handleDepartmentChange}>
@@ -258,16 +193,15 @@ export default function AppointmentPage() {
                   <SelectValue placeholder="Select a department" />
                 </SelectTrigger>
                 <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id.toString()}>
-                      {dept.name}
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id.toString()}>
+                      {d.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Date/Slot Selection */}
             {selectedDepartment && (
               <div>
                 <label className="block text-sm font-medium mb-2">Select Date</label>
@@ -276,21 +210,16 @@ export default function AppointmentPage() {
                     <SelectValue placeholder="Select a date" />
                   </SelectTrigger>
                   <SelectContent>
-                    {slots.length > 0 ? (
-                      slots.map((slot) => (
-                        <SelectItem key={slot.id} value={slot.id.toString()}>
-                          {formatDate(slot.slot_date)} ({formatTime(slot.start_time)} - {formatTime(slot.end_time)}) - {slot.available_seats} seats
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none" disabled>No available slots</SelectItem>
-                    )}
+                    {slots.length > 0 ? slots.map(slot => (
+                      <SelectItem key={slot.id} value={slot.id.toString()}>
+                        {formatDate(slot.slot_date)} ({formatTime(slot.start_time)} - {formatTime(slot.end_time)}) - {slot.available_seats} seats
+                      </SelectItem>
+                    )) : <SelectItem value="none" disabled>No available slots</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
             )}
 
-            {/* Bookings Table */}
             {selectedSlot && (
               <div>
                 <h3 className="text-lg font-medium mb-4">Bookings</h3>
@@ -300,6 +229,7 @@ export default function AppointmentPage() {
                       <TableRow>
                         <TableHead>Reference</TableHead>
                         <TableHead>Name</TableHead>
+                        <TableHead>HN</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>ID Card</TableHead>
                         <TableHead>Date</TableHead>
@@ -309,76 +239,43 @@ export default function AppointmentPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {bookings.map((booking) => (
-                        <TableRow key={booking.id}>
-                          <TableCell>{booking.booking_reference_number || 'N/A'}</TableCell>
-                          <TableCell>{booking.user_name}</TableCell>
-                          <TableCell>{booking.phone_number}</TableCell>
-                          <TableCell>{booking.id_card_number}</TableCell>
-                          <TableCell>{formatDate(booking.booking_date)}</TableCell>
+                      {bookings.map((b) => (
+                        <TableRow key={b.id}>
+                          <TableCell>{b.booking_reference_number}</TableCell>
+                          <TableCell>{b.user_name}</TableCell>
+                          <TableCell>{b.hn}</TableCell>
+                          <TableCell>{b.phone_number}</TableCell>
+                          <TableCell>{b.id_card_number}</TableCell>
+                          <TableCell>{formatDate(b.booking_date)}</TableCell>
+                          <TableCell>{formatTime(b.start_time)} - {formatTime(b.end_time)}</TableCell>
                           <TableCell>
-                            {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={getStatusColor(booking.status)}>
-                              {booking.status}
-                            </Badge>
+                            <Badge className={getStatusColor(b.status)}>{b.status}</Badge>
                           </TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
-                              {booking.status !== 'pending' && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
-                                  onClick={() => updateBookingStatus(booking.id, 'pending')}
+                              {['pending', 'confirmed', 'cancelled'].filter(s => s !== b.status).map(s => (
+                                <Button
+                                  key={s}
+                                  variant="outline"
+                                  size="sm"
+                                  className={`bg-${s === 'confirmed' ? 'green' : s === 'cancelled' ? 'red' : 'yellow'}-50 text-${s === 'confirmed' ? 'green' : s === 'cancelled' ? 'red' : 'yellow'}-700 hover:bg-${s === 'confirmed' ? 'green' : s === 'cancelled' ? 'red' : 'yellow'}-100`}
+                                  onClick={() => updateBookingStatus(b.id, s as any)}
                                 >
-                                  Pending
+                                  {s.charAt(0).toUpperCase() + s.slice(1)}
                                 </Button>
-                              )}
-                              {booking.status !== 'confirmed' && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="bg-green-50 text-green-700 hover:bg-green-100"
-                                  onClick={() => updateBookingStatus(booking.id, 'confirmed')}
-                                >
-                                  Confirm
-                                </Button>
-                              )}
-                              {booking.status !== 'cancelled' && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="bg-red-50 text-red-700 hover:bg-red-100"
-                                  onClick={() => updateBookingStatus(booking.id, 'cancelled')}
-                                >
-                                  Cancel
-                                </Button>
-                              )}
+                              ))}
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="bg-gray-50 text-gray-700 hover:bg-gray-100"
-                                  >
-                                    Delete
-                                  </Button>
+                                  <Button variant="outline" size="sm" className="bg-gray-50 text-gray-700 hover:bg-gray-100">Delete</Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Delete Booking</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete this booking? This action cannot be undone.
-                                    </AlertDialogDescription>
+                                    <AlertDialogDescription>Are you sure you want to delete this booking?</AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => deleteBooking(booking.id)}
-                                      disabled={isDeleting}
-                                    >
+                                    <AlertDialogAction onClick={() => deleteBooking(b.id)} disabled={isDeleting}>
                                       {isDeleting ? 'Deleting...' : 'Delete'}
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
@@ -390,9 +287,7 @@ export default function AppointmentPage() {
                       ))}
                     </TableBody>
                   </Table>
-                ) : (
-                  <p className="text-gray-500">No bookings found for this slot</p>
-                )}
+                ) : <p className="text-gray-500">No bookings found for this slot</p>}
               </div>
             )}
           </div>
