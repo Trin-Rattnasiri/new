@@ -1,3 +1,6 @@
+// ✅ โค้ดนี้อยู่ในหน้า AdminDashboard.tsx
+// รวม: เพิ่มเวลา + ตาราง slot + ปุ่มลบ/แก้ไข + modal แก้ไข + modal ยืนยันลบ
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -19,40 +22,60 @@ import {
   DialogFooter,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from 'date-fns';
 
 interface Department {
   id: number;
   name: string;
 }
 
+interface Slot {
+  id: number;
+  slot_date: string;
+  start_time: string;
+  end_time: string;
+  available_seats: number;
+  department_name: string;
+}
+
 const AdminDashboard = () => {
   const [departmentList, setDepartmentList] = useState<Department[]>([]);
+  const [slotList, setSlotList] = useState<Slot[]>([]);
+
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
-  const [slotDate, setSlotDate] = useState<string>('');
-  const [startTime, setStartTime] = useState<string>('');
-  const [endTime, setEndTime] = useState<string>('');
+  const [slotDate, setSlotDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [availableSeats, setAvailableSeats] = useState<number>(0);
+
   const [openConfirmModal, setOpenConfirmModal] = useState(false);
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+
+  const [editSlot, setEditSlot] = useState<Slot | null>(null);
+  const [deleteSlotId, setDeleteSlotId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchDepartments = async () => {
-      try {
-        const response = await fetch('/api/bookings');
-        const data = await response.json();
-        setDepartmentList(data); // 👈 ถ้า API คืน array ตรง ๆ
-      } catch (error) {
-        console.error("Error fetching departments:", error);
-      }
+      const res = await fetch('/api/bookings');
+      const data = await res.json();
+      setDepartmentList(data);
     };
     fetchDepartments();
+    fetchSlots();
   }, []);
 
+  const fetchSlots = async () => {
+    const res = await fetch('/api/admin/slots');
+    const data = await res.json();
+    setSlotList(data.slots || []);
+  };
+
   const handleAddSlot = async () => {
-    const response = await fetch('/api/admin/slots', {
+    const res = await fetch('/api/admin/slots', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         department_id: selectedDepartment,
         slot_date: slotDate,
@@ -61,115 +84,164 @@ const AdminDashboard = () => {
         available_seats: availableSeats,
       }),
     });
-    const result = await response.json();
+    const result = await res.json();
     alert(result.message);
     setOpenConfirmModal(false);
-
-    // ✅ รีเซ็ตฟอร์มหลังเพิ่ม
-    setSelectedDepartment('');
-    setSlotDate('');
-    setStartTime('');
-    setEndTime('');
-    setAvailableSeats(0);
+    setSelectedDepartment(''); setSlotDate(''); setStartTime(''); setEndTime(''); setAvailableSeats(0);
+    fetchSlots();
   };
 
-  const isFormValid = () =>
-    selectedDepartment && slotDate && startTime && endTime && availableSeats > 0;
+  const handleDelete = async () => {
+    if (!deleteSlotId) return;
+    await fetch(`/api/admin/slots?slotId=${deleteSlotId}`, { method: 'DELETE' });
+    setOpenDeleteModal(false);
+    setDeleteSlotId(null);
+    fetchSlots();
+  };
+
+  const handleEdit = (slot: Slot) => {
+    setEditSlot(slot);
+    setOpenEditModal(true);
+  };
+
+  const handleUpdateSlot = async () => {
+    if (!editSlot) return;
+    await fetch('/api/admin/slots', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editSlot),
+    });
+    setOpenEditModal(false);
+    fetchSlots();
+  };
 
   return (
-    <div className="w-full min-h-screen bg-slate-50">
-      <div className="w-full max-w-full p-6">
-        <h1 className="text-3xl font-bold mb-6">เพิ่มตารางเวลา</h1>
+    <div className="w-full min-h-screen bg-slate-50 p-6">
+      <h1 className="text-3xl font-bold mb-6">เพิ่มตารางเวลา</h1>
 
-        <Card className="w-full p-6 shadow-md">
-          <h2 className="text-2xl font-semibold mb-6">เพิ่มเวลา (Slot) ให้แผนก</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-            <div className="space-y-2">
-              <Label>เลือกแผนก:</Label>
-              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="เลือกแผนก" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departmentList.map((dept) => (
-                    <SelectItem key={dept.id} value={String(dept.id)}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>เลือกวันที่:</Label>
-              <Input
-                type="date"
-                value={slotDate}
-                onChange={(e) => setSlotDate(e.target.value)}
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>เลือกเวลาเริ่มต้น:</Label>
-              <Input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>เลือกเวลาสิ้นสุด:</Label>
-              <Input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>จำนวนที่นั่งว่าง:</Label>
-              <Input
-                type="number"
-                value={availableSeats}
-                onChange={(e) => setAvailableSeats(Number(e.target.value))}
-                className="w-full"
-              />
-            </div>
+      {/* ฟอร์มเพิ่ม */}
+      <Card className="p-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label>เลือกแผนก:</Label>
+            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="เลือกแผนก" />
+              </SelectTrigger>
+              <SelectContent>
+                {departmentList.map((dept) => (
+                  <SelectItem key={dept.id} value={String(dept.id)}>{dept.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+          <div className="space-y-2">
+            <Label>วันที่:</Label>
+            <Input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>เวลาเริ่ม:</Label>
+            <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>เวลาสิ้นสุด:</Label>
+            <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>จำนวนที่นั่งว่าง:</Label>
+            <Input type="number" value={availableSeats} onChange={(e) => setAvailableSeats(Number(e.target.value))} />
+          </div>
+        </div>
+        <div className="mt-6">
+          <Button onClick={() => setOpenConfirmModal(true)}>เพิ่มเวลา</Button>
+        </div>
+      </Card>
 
-          <div className="mt-6">
+{/* ตาราง slot */}
+<h2 className="text-xl font-bold mb-3">ตารางเวลา</h2>
+<Card className="overflow-x-auto">
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableCell>วันที่</TableCell>
+        <TableCell>แผนก</TableCell> {/* moved up */}
+        <TableCell>เวลา</TableCell>  {/* moved down */}
+        <TableCell>จำนวนที่นั่งว่าง</TableCell>
+        <TableCell>การจัดการ</TableCell>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {slotList.map((slot) => (
+        <TableRow key={slot.id}>
+          <TableCell>{format(new Date(slot.slot_date), 'dd/MM/yyyy')}</TableCell>
+          <TableCell>{slot.department_name}</TableCell> {/* moved up */}
+          <TableCell>{slot.start_time} - {slot.end_time}</TableCell> {/* moved down */}
+          <TableCell>{slot.available_seats}</TableCell>
+          <TableCell className="space-x-2">
+            <Button size="sm" onClick={() => handleEdit(slot)}>แก้ไข</Button>
             <Button
-              onClick={() => isFormValid() ? setOpenConfirmModal(true) : alert("กรุณากรอกข้อมูลให้ครบ")}
-              className="w-full sm:w-auto px-6"
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                setDeleteSlotId(slot.id);
+                setOpenDeleteModal(true);
+              }}
             >
-              เพิ่มเวลา
+              ลบ
             </Button>
-          </div>
-        </Card>
-      </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</Card>
 
-      {/* ✅ Modal ยืนยันก่อนเพิ่ม */}
+
+      {/* Modal เพิ่ม */}
       <Dialog open={openConfirmModal} onOpenChange={setOpenConfirmModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>ยืนยันการเพิ่มเวลา</DialogTitle>
+            <DialogTitle>ยืนยันการเพิ่ม</DialogTitle>
           </DialogHeader>
-          <p>
-            คุณแน่ใจหรือไม่ว่าต้องการเพิ่มตารางเวลาในวันที่{" "}
-            <strong>{slotDate}</strong> เวลา <strong>{startTime} - {endTime}</strong> ?
-          </p>
+          <p>เพิ่มเวลาใหม่ใช่หรือไม่?</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenConfirmModal(false)}>
-              ยกเลิก
-            </Button>
-            <Button onClick={handleAddSlot} className="bg-green-600 text-white hover:bg-green-700">
-              ✅ เพิ่มเลย
-            </Button>
+            <Button variant="outline" onClick={() => setOpenConfirmModal(false)}>ยกเลิก</Button>
+            <Button onClick={handleAddSlot}>เพิ่ม</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal แก้ไข */}
+      <Dialog open={openEditModal} onOpenChange={setOpenEditModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>แก้ไข Slot</DialogTitle>
+          </DialogHeader>
+          {editSlot && (
+            <div className="space-y-4">
+              <Input type="date" value={editSlot.slot_date} onChange={(e) => setEditSlot({ ...editSlot, slot_date: e.target.value })} />
+              <Input type="time" value={editSlot.start_time} onChange={(e) => setEditSlot({ ...editSlot, start_time: e.target.value })} />
+              <Input type="time" value={editSlot.end_time} onChange={(e) => setEditSlot({ ...editSlot, end_time: e.target.value })} />
+              <Input type="number" value={editSlot.available_seats} onChange={(e) => setEditSlot({ ...editSlot, available_seats: Number(e.target.value) })} />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenEditModal(false)}>ยกเลิก</Button>
+            <Button onClick={handleUpdateSlot}>บันทึก</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal ลบ */}
+      <Dialog open={openDeleteModal} onOpenChange={setOpenDeleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ยืนยันการลบ</DialogTitle>
+          </DialogHeader>
+          <p>คุณต้องการลบ slot นี้ใช่หรือไม่?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenDeleteModal(false)}>ยกเลิก</Button>
+            <Button variant="destructive" onClick={handleDelete}>ลบ</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

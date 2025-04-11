@@ -5,6 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
 import { Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 interface Department {
   id: number;
@@ -19,6 +26,12 @@ const AdminPage = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editedName, setEditedName] = useState<string>('');
 
+  const [openAddModal, setOpenAddModal] = useState(false);
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingName, setDeletingName] = useState<string>('');
+
   const fetchDepartments = async () => {
     setLoading(true);
     const response = await fetch('/api/bookings');
@@ -32,44 +45,48 @@ const AdminPage = () => {
   }, []);
 
   const handleAddDepartment = async () => {
-    if (!newDepartmentName) {
-      alert("กรุณากรอกชื่อแผนก");
-      return;
-    }
-
+    if (!newDepartmentName) return;
     setLoading(true);
     const response = await fetch('/api/admin/department', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newDepartmentName }),
     });
-
     const result = await response.json();
-    alert(result.message);
+    
     if (response.ok) {
       setNewDepartmentName('');
+      setOpenAddModal(false);
       fetchDepartments();
     }
     setLoading(false);
   };
 
-  const handleDeleteDepartment = async (departmentId: number) => {
-    const response = await fetch(`/api/admin/department?departmentId=${departmentId}`, {
+  const handleDeleteDepartment = async () => {
+    if (!deletingId) return;
+    const response = await fetch(`/api/admin/department?departmentId=${deletingId}`, {
       method: 'DELETE',
     });
     const result = await response.json();
-    alert(result.message);
-    if (response.ok) fetchDepartments();
+    
+    if (response.ok) {
+      setOpenDeleteModal(false);
+      setDeletingId(null);
+      setDeletingName('');
+      fetchDepartments();
+    }
   };
 
   const handleStartEdit = (id: number, name: string) => {
     setEditingId(id);
     setEditedName(name);
+    setOpenEditModal(true);
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditedName('');
+  const handleStartDelete = (id: number, name: string) => {
+    setDeletingId(id);
+    setDeletingName(name);
+    setOpenDeleteModal(true);
   };
 
   const handleSaveEdit = async () => {
@@ -77,19 +94,18 @@ const AdminPage = () => {
       alert("ชื่อแผนกห้ามว่าง");
       return;
     }
-
     setLoading(true);
     const response = await fetch(`/api/admin/department`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: editingId, name: editedName }),
     });
-
     const result = await response.json();
     alert(result.message);
     if (response.ok) {
       setEditingId(null);
       setEditedName('');
+      setOpenEditModal(false);
       fetchDepartments();
     }
     setLoading(false);
@@ -109,8 +125,8 @@ const AdminPage = () => {
             placeholder="ชื่อแผนก"
             className="border p-2 rounded-md flex-grow"
           />
-          <Button onClick={handleAddDepartment} disabled={loading} className="w-32">
-            {loading ? <Loader2 className="animate-spin" /> : 'เพิ่มแผนก'}
+          <Button onClick={() => setOpenAddModal(true)} className="w-32">
+            เพิ่มแผนก
           </Button>
         </div>
       </Card>
@@ -127,34 +143,61 @@ const AdminPage = () => {
               <p>ยังไม่มีแผนกในระบบ</p>
             ) : (
               departmentList.map((dept) => (
-                <li key={dept.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  {editingId === dept.id ? (
-                    <>
-                      <Input
-                        value={editedName}
-                        onChange={(e) => setEditedName(e.target.value)}
-                        className="flex-grow"
-                      />
-                      <div className="flex gap-2 mt-2 sm:mt-0">
-                        <Button onClick={handleSaveEdit} className="bg-green-600 text-white px-4 py-1 rounded-md">บันทึก</Button>
-                        <Button onClick={handleCancelEdit} className="bg-gray-400 text-white px-4 py-1 rounded-md">ยกเลิก</Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-lg">{dept.name}</span>
-                      <div className="flex gap-2">
-                        <Button onClick={() => handleStartEdit(dept.id, dept.name)} className="bg-yellow-500 text-white px-3 py-1 rounded-md">แก้ไข</Button>
-                        <Button onClick={() => handleDeleteDepartment(dept.id)} className="bg-red-600 text-white px-3 py-1 rounded-md">ลบ</Button>
-                      </div>
-                    </>
-                  )}
+                <li key={dept.id} className="flex justify-between items-center gap-2">
+                  <span className="text-lg">{dept.name}</span>
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleStartEdit(dept.id, dept.name)} className="bg-yellow-500 text-white px-3 py-1 rounded-md">แก้ไข</Button>
+                    <Button onClick={() => handleStartDelete(dept.id, dept.name)} className="bg-red-600 text-white px-3 py-1 rounded-md">ลบ</Button>
+                  </div>
                 </li>
               ))
             )}
           </ul>
         )}
       </Card>
+
+      {/* Modal เพิ่มแผนก */}
+      <Dialog open={openAddModal} onOpenChange={setOpenAddModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ยืนยันเพิ่มแผนก</DialogTitle>
+          </DialogHeader>
+          <p>คุณต้องการเพิ่มแผนก "{newDepartmentName}" หรือไม่?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenAddModal(false)}>ยกเลิก</Button>
+            <Button onClick={handleAddDepartment}>ยืนยัน</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal แก้ไขแผนก */}
+      <Dialog open={openEditModal} onOpenChange={setOpenEditModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ยืนยันการแก้ไข</DialogTitle>
+          </DialogHeader>
+          <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} className="my-3" />
+          <p>คุณต้องการเปลี่ยนชื่อแผนกเป็น "{editedName}" ใช่หรือไม่?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenEditModal(false)}>ยกเลิก</Button>
+            <Button onClick={handleSaveEdit}>บันทึก</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal ลบแผนก */}
+      <Dialog open={openDeleteModal} onOpenChange={setOpenDeleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ยืนยันการลบ</DialogTitle>
+          </DialogHeader>
+          <p>คุณแน่ใจหรือไม่ว่าต้องการลบแผนก "{deletingName}"?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenDeleteModal(false)}>ยกเลิก</Button>
+            <Button variant="destructive" onClick={handleDeleteDepartment}>ลบ</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

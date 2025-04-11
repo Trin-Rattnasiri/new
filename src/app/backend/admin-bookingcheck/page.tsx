@@ -58,7 +58,7 @@ const AdminSearchPage = () => {
 
     try {
       console.log(`Searching: ${bookingReferenceNumber}`);
-      const res = await fetch(`/api/admin/seach?booking_reference_number=${bookingReferenceNumber}`);
+      const res = await fetch(`/api/admin/appointment?bookingId=${bookingReferenceNumber}`);
       const data = await res.json();
 
       if (!res.ok) {

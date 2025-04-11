@@ -1,18 +1,21 @@
 "use client";
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
-  Home, 
-  Users, 
-  ShoppingCart, 
-  Settings, 
-  BarChart, 
+import {
+  Home,
+  Users,
+  Settings,
+  BarChart,
   LogOut,
   Menu,
   X,
+  Clock,
 } from 'lucide-react';
+
+import { MdArticle } from 'react-icons/md';
 
 import { cn } from "@/lib/utils";
 import {
@@ -24,23 +27,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// ✅ เมนูด้านข้าง (path ไม่ซ้ำกันแล้ว)
 const sidebarItems = [
-  { title: 'แดชบอร์ด', path: '/backend/admin-Panel', icon: <Home size={20} /> },
+  { title: 'รายการจอง', path: '/backend/admin-Panel', icon: <Home size={20} /> },
   { title: 'เพิ่มแผนก', path: '/backend/admin-list', icon: <Users size={20} /> },
   { title: 'ตรวจสอบการจอง', path: '/backend/admin-bookingcheck', icon: <BarChart size={20} /> },
-  { title: 'เพิ่มเวลา', path: '/backend/admin-dashboard', icon: <Settings size={20} /> },
-  { title: 'เปลี่ยนข่าวสาร', path: '/backend/admin-news', icon: <Settings size={20} /> },
-  { title: 'ตารางการจอง', path: '/backend/admin-dashboard', icon: <Settings size={20} /> },
+  { title: 'เพิ่มเวลา', path: '/backend/admin-dashboard', icon: <Clock size={20} /> },
+  { title: 'เปลี่ยนข่าวสาร', path: '/backend/admin-news', icon: <MdArticle size={20} /> },
 ];
 
 const Sidebar = () => {
@@ -48,15 +49,13 @@ const Sidebar = () => {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
-  const toggleSidebar = () => {
-    setCollapsed(!collapsed);
-  };
+  const toggleSidebar = () => setCollapsed(!collapsed);
 
   const handleLogout = () => {
     const confirmLogout = window.confirm("คุณต้องการออกจากระบบหรือไม่?");
     if (confirmLogout) {
       localStorage.clear();
-      router.push("/admin-login"); // แก้ path ตามจริงที่ใช้ login admin
+      router.push("/admin-login");
     }
   };
 
@@ -94,7 +93,10 @@ const Sidebar = () => {
                           <Button
                             variant={isActive ? "secondary" : "ghost"}
                             size="icon"
-                            className="w-full justify-center"
+                            className={cn(
+                              "w-full justify-center",
+                              isActive && "bg-primary text-white hover:bg-primary/90"
+                            )}
                           >
                             {item.icon}
                           </Button>
@@ -108,7 +110,10 @@ const Sidebar = () => {
                     <Link href={item.path}>
                       <Button
                         variant={isActive ? "secondary" : "ghost"}
-                        className="w-full justify-start"
+                        className={cn(
+                          "w-full justify-start",
+                          isActive && "bg-primary text-white hover:bg-primary/90"
+                        )}
                       >
                         <span className="mr-3">{item.icon}</span>
                         <span>{item.title}</span>

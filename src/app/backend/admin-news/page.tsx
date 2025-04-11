@@ -2,12 +2,23 @@
 
 import { useEffect, useState, useRef } from "react"
 import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 const AdminNewsPage = () => {
   const [newsImages, setNewsImages] = useState<any[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>("")
   const [caption, setCaption] = useState<string>("")
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [openDeleteModal, setOpenDeleteModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -43,16 +54,21 @@ const AdminNewsPage = () => {
     }
   }
 
-  const handleDelete = async (id: number) => {
-    const confirmDel = confirm("ต้องการลบรูปนี้หรือไม่?")
-    if (!confirmDel) return
+  const confirmDelete = (id: number) => {
+    setDeleteId(id)
+    setOpenDeleteModal(true)
+  }
 
-    const res = await fetch(`/api/admin/new?id=${id}`, {
+  const handleDelete = async () => {
+    if (!deleteId) return
+    const res = await fetch(`/api/admin/new?id=${deleteId}`, {
       method: "DELETE",
     })
 
     if (res.ok) {
       fetchNews()
+      setOpenDeleteModal(false)
+      setDeleteId(null)
     } else {
       alert("ลบไม่สำเร็จ")
     }
@@ -116,7 +132,7 @@ const AdminNewsPage = () => {
                   className="object-cover"
                 />
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={() => confirmDelete(item.id)}
                   className="absolute top-2 right-2 px-2 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 opacity-90"
                 >
                   ลบ
@@ -127,6 +143,24 @@ const AdminNewsPage = () => {
           ))}
         </div>
       )}
+
+      {/* Modal ลบ */}
+      <Dialog open={openDeleteModal} onOpenChange={setOpenDeleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ยืนยันการลบภาพข่าว</DialogTitle>
+            <DialogDescription>คุณต้องการลบภาพนี้ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpenDeleteModal(false)}>
+              ยกเลิก
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              ลบภาพ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
