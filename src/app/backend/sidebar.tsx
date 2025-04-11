@@ -35,13 +35,12 @@ import {
 
 // ✅ เมนูด้านข้าง (path ไม่ซ้ำกันแล้ว)
 const sidebarItems = [
-  { title: 'แดชบอร์ด', path: '/backend/admin-dashboard', icon: <Home size={20} /> },
+  { title: 'แดชบอร์ด', path: '/backend/admin-Panel', icon: <Home size={20} /> },
   { title: 'เพิ่มแผนก', path: '/backend/admin-list', icon: <Users size={20} /> },
-  { title: 'เพิ่ม slot เวลา', path: '/backend/admin-slot', icon: <ShoppingCart size={20} /> },
   { title: 'ตรวจสอบการจอง', path: '/backend/admin-bookingcheck', icon: <BarChart size={20} /> },
-  { title: 'ดูเวลาต่างๆ', path: '/backend/admin-view', icon: <Settings size={20} /> },
+  { title: 'เพิ่มเวลา', path: '/backend/admin-dashboard', icon: <Settings size={20} /> },
   { title: 'เปลี่ยนข่าวสาร', path: '/backend/admin-news', icon: <Settings size={20} /> },
-  { title: 'ตารางการจอง', path: '/backend/admin-Panel', icon: <Settings size={20} /> },
+  { title: 'ตารางการจอง', path: '/backend/admin-dashboard', icon: <Settings size={20} /> },
 ];
 
 const Sidebar = () => {

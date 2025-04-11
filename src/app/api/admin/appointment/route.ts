@@ -39,10 +39,9 @@ export async function POST(request: NextRequest) {
       await connection.end();
       return NextResponse.json({ slots }, { status: 200 });
     }
-
-    if (body.departmentId && body.slotId) {
-      const [bookings] = await connection.execute(
-        `SELECT 
+    if (!body.departmentId && !body.slotId) {
+      const [bookings] = await connection.execute(`
+        SELECT 
           b.id,
           b.name AS user_name,
           b.hn,
@@ -59,14 +58,11 @@ export async function POST(request: NextRequest) {
         JOIN departments d ON b.department_id = d.id
         JOIN slots s ON b.slot_id = s.id
         LEFT JOIN user u ON b.created_by = u.citizenId
-        WHERE b.department_id = ? AND b.slot_id = ?
-        ORDER BY b.id DESC`,
-        [body.departmentId, body.slotId]
-      );
-      await connection.end();
-      return NextResponse.json({ bookings }, { status: 200 });
+        ORDER BY b.id DESC
+      `)
+      await connection.end()
+      return NextResponse.json({ bookings }, { status: 200 })
     }
-
     await connection.end();
     return NextResponse.json({ error: 'Invalid request parameters' }, { status: 400 });
   } catch (error) {
