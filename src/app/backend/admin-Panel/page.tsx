@@ -159,6 +159,9 @@ export default function AdminBookingsPage() {
     }
   };
 
+  const sortedSlotList = [...slotList].sort((a, b) => new Date(a.slot_date).getTime() - new Date(b.slot_date).getTime());
+  const sortedBookings = [...bookings].sort((a, b) => new Date(a.slot_date).getTime() - new Date(b.slot_date).getTime());
+
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -197,7 +200,7 @@ export default function AdminBookingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {slotList.map((slot) => (
+                  {sortedSlotList.map((slot) => (
                     <TableRow key={slot.id} className="hover:bg-gray-50 transition-colors">
                       <TableCell>{slot.department_name}</TableCell>
                       <TableCell>{format(new Date(slot.slot_date), 'dd/MM/yyyy')}</TableCell>
@@ -233,7 +236,7 @@ export default function AdminBookingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bookings.map((b) => (
+                  {sortedBookings.map((b) => (
                     <TableRow key={b.id} className="hover:bg-gray-50 transition-colors">
                       <TableCell>{b.department_name}</TableCell>
                       <TableCell>
@@ -276,25 +279,13 @@ export default function AdminBookingsPage() {
                         <Badge className={getStatusColor(b.status)}>{getStatusLabel(b.status)}</Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button
-                          size="sm"
-                          onClick={() => confirmStatusChange(b.id, 'confirmed')}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
+                        <Button size="sm" onClick={() => confirmStatusChange(b.id, 'confirmed')} className="bg-green-600 hover:bg-green-700 text-white">
                           ยืนยัน
                         </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => confirmStatusChange(b.id, 'pending')}
-                          className="bg-yellow-500 hover:bg-yellow-600 text-black"
-                        >
+                        <Button size="sm" onClick={() => confirmStatusChange(b.id, 'pending')} className="bg-yellow-500 hover:bg-yellow-600 text-black">
                           รอดำเนินการ
                         </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => confirmDelete(b.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white"
-                        >
+                        <Button size="sm" onClick={() => confirmDelete(b.id)} className="bg-red-600 hover:bg-red-700 text-white">
                           ยกเลิก
                         </Button>
                       </TableCell>
@@ -319,10 +310,7 @@ export default function AdminBookingsPage() {
               <Button variant="outline" onClick={() => setOpenDeleteModal(false)}>
                 ยกเลิก
               </Button>
-              <Button
-                className="bg-red-600 hover:bg-red-700 text-white"
-                onClick={deleteConfirmed}
-              >
+              <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={deleteConfirmed}>
                 ลบ
               </Button>
             </DialogFooter>
@@ -343,10 +331,7 @@ export default function AdminBookingsPage() {
               <Button variant="outline" onClick={() => setOpenConfirmModal(false)}>
                 ยกเลิก
               </Button>
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={changeConfirmedStatus}
-              >
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={changeConfirmedStatus}>
                 ยืนยัน
               </Button>
             </DialogFooter>

@@ -1,5 +1,5 @@
 // ✅ โค้ดนี้อยู่ในหน้า AdminDashboard.tsx
-// รวม: เพิ่มเวลา + ตาราง slot + ปุ่มลบ/แก้ไข + modal แก้ไข + modal ยืนยันลบ
+// รวม: เพิ่มเวลา + ตาราง slot + ปุ่มลบ/แก้ไข + modal แก้ไข + modal ยืนยันลบ พร้อม input เวลาแบบ 24 ชั่วโมง (text input)
 
 'use client';
 
@@ -140,12 +140,24 @@ const AdminDashboard = () => {
             <Input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>เวลาเริ่ม:</Label>
-            <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            <Label>เวลาเริ่ม (24 ชม.):</Label>
+            <Input
+              type="text"
+              placeholder="เช่น 08:00"
+              pattern="^([01]\d|2[0-3]):([0-5]\d)$"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
-            <Label>เวลาสิ้นสุด:</Label>
-            <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            <Label>เวลาสิ้นสุด (24 ชม.):</Label>
+            <Input
+              type="text"
+              placeholder="เช่น 14:30"
+              pattern="^([01]\d|2[0-3]):([0-5]\d)$"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label>จำนวนที่นั่งว่าง:</Label>
@@ -157,45 +169,44 @@ const AdminDashboard = () => {
         </div>
       </Card>
 
-{/* ตาราง slot */}
-<h2 className="text-xl font-bold mb-3">ตารางเวลา</h2>
-<Card className="overflow-x-auto">
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableCell>วันที่</TableCell>
-        <TableCell>แผนก</TableCell> {/* moved up */}
-        <TableCell>เวลา</TableCell>  {/* moved down */}
-        <TableCell>จำนวนที่นั่งว่าง</TableCell>
-        <TableCell>การจัดการ</TableCell>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {slotList.map((slot) => (
-        <TableRow key={slot.id}>
-          <TableCell>{format(new Date(slot.slot_date), 'dd/MM/yyyy')}</TableCell>
-          <TableCell>{slot.department_name}</TableCell> {/* moved up */}
-          <TableCell>{slot.start_time} - {slot.end_time}</TableCell> {/* moved down */}
-          <TableCell>{slot.available_seats}</TableCell>
-          <TableCell className="space-x-2">
-            <Button size="sm" onClick={() => handleEdit(slot)}>แก้ไข</Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                setDeleteSlotId(slot.id);
-                setOpenDeleteModal(true);
-              }}
-            >
-              ลบ
-            </Button>
-          </TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  </Table>
-</Card>
-
+      {/* ตาราง slot */}
+      <h2 className="text-xl font-bold mb-3">ตารางเวลา</h2>
+      <Card className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableCell>วันที่</TableCell>
+              <TableCell>แผนก</TableCell>
+              <TableCell>เวลา</TableCell>
+              <TableCell>จำนวนที่นั่งว่าง</TableCell>
+              <TableCell>การจัดการ</TableCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {slotList.map((slot) => (
+              <TableRow key={slot.id}>
+                <TableCell>{format(new Date(slot.slot_date), 'dd/MM/yyyy')}</TableCell>
+                <TableCell>{slot.department_name}</TableCell>
+                <TableCell>{slot.start_time} - {slot.end_time}</TableCell>
+                <TableCell>{slot.available_seats}</TableCell>
+                <TableCell className="space-x-2">
+                  <Button size="sm" onClick={() => handleEdit(slot)}>แก้ไข</Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      setDeleteSlotId(slot.id);
+                      setOpenDeleteModal(true);
+                    }}
+                  >
+                    ลบ
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
 
       {/* Modal เพิ่ม */}
       <Dialog open={openConfirmModal} onOpenChange={setOpenConfirmModal}>
@@ -220,8 +231,8 @@ const AdminDashboard = () => {
           {editSlot && (
             <div className="space-y-4">
               <Input type="date" value={editSlot.slot_date} onChange={(e) => setEditSlot({ ...editSlot, slot_date: e.target.value })} />
-              <Input type="time" value={editSlot.start_time} onChange={(e) => setEditSlot({ ...editSlot, start_time: e.target.value })} />
-              <Input type="time" value={editSlot.end_time} onChange={(e) => setEditSlot({ ...editSlot, end_time: e.target.value })} />
+              <Input type="text" placeholder="HH:mm" value={editSlot.start_time} onChange={(e) => setEditSlot({ ...editSlot, start_time: e.target.value })} />
+              <Input type="text" placeholder="HH:mm" value={editSlot.end_time} onChange={(e) => setEditSlot({ ...editSlot, end_time: e.target.value })} />
               <Input type="number" value={editSlot.available_seats} onChange={(e) => setEditSlot({ ...editSlot, available_seats: Number(e.target.value) })} />
             </div>
           )}
