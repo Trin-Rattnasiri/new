@@ -79,7 +79,7 @@ const DashboardPage = () => {
           onClick={handleLogout}
         >
           <LogOut className="w-4 h-4 mr-1" />
-          ออกจากระบบ
+          
         </Button>
       </div>
 

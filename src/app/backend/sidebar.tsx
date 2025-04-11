@@ -40,7 +40,7 @@ const sidebarItems = [
   { title: 'รายการจอง', path: '/backend/admin-Panel', icon: <Home size={20} /> },
   { title: 'เพิ่มแผนก', path: '/backend/admin-list', icon: <Users size={20} /> },
   { title: 'เพิ่มเวลา', path: '/backend/admin-dashboard', icon: <Clock size={20} /> },
-  { title: 'เปลี่ยนข่าวสาร', path: '/backend/admin-news', icon: <MdArticle size={20} /> },
+  { title: 'ข่าวสาร', path: '/backend/admin-news', icon: <MdArticle size={20} /> },
 ];
 
 const Sidebar = () => {
