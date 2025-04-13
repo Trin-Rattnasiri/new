@@ -23,12 +23,7 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
-  const router = useRouter();
-
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    router.push("/");
-  };
+  const router = useRouter(); // ✅ เรียกใช้งาน Router
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -41,7 +36,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           <div className="flex h-16 items-center justify-between px-6">
             <div className="flex items-center gap-2 lg:gap-4" />
             <div className="flex items-center gap-4">
-              {/* Bell Icon */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon">
@@ -57,7 +51,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* User Profile Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon">
@@ -67,7 +60,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>บัญชีของฉัน</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push("/backend/manage-admins")}>
+                  <DropdownMenuItem >
                     <User className="mr-2 h-4 w-4" />
                     <span>โปรไฟล์</span>
                   </DropdownMenuItem>
@@ -76,9 +69,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     <span>ตั้งค่า</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    ออกจากระบบ
-                  </DropdownMenuItem>
+                  <DropdownMenuItem>ออกจากระบบ</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

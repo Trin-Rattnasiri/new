@@ -1,77 +1,81 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { LogOut, Calendar, History } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
-import UpcomingAppointment from "../component/UpcomingAppointment"
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { LogOut, Calendar, History } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import UpcomingAppointment from "../component/UpcomingAppointment";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { useSwipeable } from "react-swipeable";//npm install react-swipeable
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 
 interface UserInfo {
-  prefix: string
-  name: string
-  citizenId: string
-  hn?: string
+  prefix: string;
+  name: string;
+  citizenId: string;
+  hn?: string;
 }
 
 const DashboardPage = () => {
-  const router = useRouter()
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
-  const [bannerImages, setBannerImages] = useState<string[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const router = useRouter();
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [bannerImages, setBannerImages] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  // ⏱ เปลี่ยนภาพทุก 10 วินาที
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % bannerImages.length)
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [bannerImages.length])
+      setCurrentIndex((prev) => (prev + 1) % bannerImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [bannerImages.length]);
 
   useEffect(() => {
-    const stored = localStorage.getItem("user")
+    const stored = localStorage.getItem("user");
     if (stored) {
-      const parsed = JSON.parse(stored)
+      const parsed = JSON.parse(stored);
       if (parsed.role === "user" && parsed.citizenId) {
         fetch(`/api/user/profile?citizenId=${parsed.citizenId}`)
           .then((res) => res.json())
           .then((data) => setUserInfo(data))
-          .catch((err) => console.error("Error fetching profile:", err))
+          .catch((err) => console.error("Error fetching profile:", err));
       }
     }
 
     fetch("/api/admin/new")
-      .then(res => res.json())
-      .then(data => {
-        const urls = data.map((item: any) => item.imageUrl)
-        setBannerImages(urls)
+      .then((res) => res.json())
+      .then((data) => {
+        const urls = data.map((item: any) => item.imageUrl);
+        setBannerImages(urls);
       })
-      .catch(err => console.error("Error loading banner images:", err))
-  }, [])
+      .catch((err) => console.error("Error loading banner images:", err));
+  }, []);
 
   const avatarSrc = useMemo(() => {
-    const prefix = userInfo?.prefix?.trim()
-    if (!prefix) return "/man.png"
-    if (["นาง", "นางสาว"].includes(prefix)) return "/woman.png"
-    if (prefix === "เด็กหญิง") return "/girl.png"
-    if (prefix === "เด็กชาย") return "/boy.png"
-    return "/man.png"
-  }, [userInfo?.prefix])
+    const prefix = userInfo?.prefix?.trim();
+    if (!prefix) return "/man.png";
+    if (["นาง", "นางสาว"].includes(prefix)) return "/woman.png";
+    if (prefix === "เด็กหญิง") return "/girl.png";
+    if (prefix === "เด็กชาย") return "/boy.png";
+    return "/man.png";
+  }, [userInfo?.prefix]);
 
   const handleLogout = () => {
-    const confirmLogout = window.confirm("คุณต้องการออกจากระบบใช่หรือไม่?")
-    if (confirmLogout) {
-      localStorage.clear()
-      router.push("/")
+    if (window.confirm("คุณต้องการออกจากระบบใช่หรือไม่?")) {
+      localStorage.clear();
+      router.push("/");
     }
-  }
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => setCurrentIndex((prev) => (prev + 1) % bannerImages.length),
+    onSwipedRight: () => setCurrentIndex((prev) => (prev - 1 + bannerImages.length) % bannerImages.length),
+    trackMouse: true,
+  });
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center pb-10 px-2">
-      {/* Header */}
       <div className="w-screen bg-[#0b47d4] text-white text-center py-3 text-xl font-bold relative">
         โรงพยาบาลแม่จัน
         <Button
@@ -84,7 +88,6 @@ const DashboardPage = () => {
         </Button>
       </div>
 
-      {/* User Info */}
       <div className="w-full max-w-md px-4 mt-4 flex items-center">
         <Avatar className="h-12 w-12 border border-white">
           <AvatarImage src={avatarSrc} />
@@ -98,8 +101,8 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Banner แบบ slideshow */}
-      <div className="w-full mt-4 px-4">
+      {/* Banner */}
+      <div className="w-full mt-4 px-4" {...swipeHandlers}>
         <div className="max-w-md mx-auto overflow-hidden shadow-lg rounded-xl bg-white">
           {bannerImages.length > 0 && (
             <Image
@@ -111,12 +114,19 @@ const DashboardPage = () => {
             />
           )}
         </div>
+        {/* Indicator */}
+        <div className="flex justify-center mt-2 gap-2">
+          {bannerImages.map((_, idx) => (
+            <span
+              key={idx}
+              className={`w-2 h-2 rounded-full ${idx === currentIndex ? "bg-blue-600" : "bg-gray-300"}`}
+            ></span>
+          ))}
+        </div>
       </div>
 
-      {/* รายการสำคัญ */}
       <UpcomingAppointment />
 
-      {/* รายการหลัก */}
       <div className="w-full max-w-md mt-6 px-4">
         <h3 className="text-xl font-bold text-gray-800 mb-3">รายการหลัก</h3>
         <div className="grid grid-cols-1 gap-4">
@@ -145,7 +155,7 @@ const DashboardPage = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default DashboardPage
+export default DashboardPage;

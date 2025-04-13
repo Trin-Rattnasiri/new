@@ -1,39 +1,24 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home,
-  Users,
-  Settings,
-  BarChart,
-  LogOut,
-  Menu,
-  X,
-  Clock,
+  Home, Users, Settings, BarChart, LogOut, Menu, X, Clock, User as UserIcon
 } from 'lucide-react';
-
 import { MdArticle } from 'react-icons/md';
 
 import { cn } from "@/lib/utils";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 const sidebarItems = [
@@ -47,6 +32,7 @@ const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const toggleSidebar = () => setCollapsed(!collapsed);
 
@@ -54,9 +40,19 @@ const Sidebar = () => {
     const confirmLogout = window.confirm("คุณต้องการออกจากระบบหรือไม่?");
     if (confirmLogout) {
       localStorage.clear();
-      router.push("/admin-login");
+      router.push("/");
     }
   };
+
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.position === "SuperAdmin") {
+        setIsSuperAdmin(true);
+      }
+    }
+  }, []);
 
   return (
     <div className={cn(
@@ -128,48 +124,34 @@ const Sidebar = () => {
 
       {/* Footer */}
       <div className="p-4 border-t">
-        {collapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt="แอดมิน" />
-                  <AvatarFallback>AD</AvatarFallback>
-                </Avatar>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              แอดมิน - ผู้ดูแลระบบ
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="w-full justify-start">
-                <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt="แอดมิน" />
-                  <AvatarFallback>AD</AvatarFallback>
-                </Avatar>
-                <div className="text-left">
-                  <p className="text-sm font-medium">แอดมิน</p>
-                  <p className="text-xs text-muted-foreground">ผู้ดูแลระบบ</p>
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>บัญชีของฉัน</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>บัญชีผู้ใช้</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start">
+              <Avatar className="h-8 w-8 mr-2">
+                <AvatarImage src="/placeholder-avatar.jpg" alt="แอดมิน" />
+                <AvatarFallback>AD</AvatarFallback>
+              </Avatar>
+              <div className="text-left">
+                <p className="text-sm font-medium">แอดมิน</p>
+                <p className="text-xs text-muted-foreground">{isSuperAdmin ? 'Superadmin' : 'Admin'}</p>
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>บัญชีของฉัน</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {isSuperAdmin && (
+              <DropdownMenuItem onClick={() => router.push("/backend/manage-admins")}> 
+                <UserIcon className="mr-2 h-4 w-4" />
+                <span>จัดการระบบแอดมิน</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>ออกจากระบบ</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+            )}
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>ออกจากระบบ</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
