@@ -140,7 +140,7 @@ const AdminDashboard = () => {
             <Input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>เวลาเริ่ม (24 ชม.):</Label>
+            <Label>เวลาเริ่ม:</Label>
             <Input
               type="text"
               placeholder="เช่น 08:00"
@@ -150,7 +150,7 @@ const AdminDashboard = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label>เวลาสิ้นสุด (24 ชม.):</Label>
+            <Label>เวลาสิ้นสุด:</Label>
             <Input
               type="text"
               placeholder="เช่น 14:30"
@@ -160,7 +160,7 @@ const AdminDashboard = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label>จำนวนที่นั่งว่าง:</Label>
+            <Label>จำนวนที่จะเปิดให้จอง:</Label>
             <Input type="number" value={availableSeats} onChange={(e) => setAvailableSeats(Number(e.target.value))} />
           </div>
         </div>
