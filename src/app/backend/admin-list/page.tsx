@@ -223,7 +223,7 @@ const AdminPage = () => {
           <Heading level={1} className="text-3xl font-bold">จัดการแผนก</Heading>
         </div>
         <Badge variant="outline" className="px-4 py-2 text-sm">
-          จำนวนแผนกทั้งหมด: {departmentList.length}
+          จำนวนแผนกทั้งหมดที่เปิด: {departmentList.length}
         </Badge>
       </div>
 
