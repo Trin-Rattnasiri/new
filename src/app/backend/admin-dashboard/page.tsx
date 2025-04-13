@@ -1,6 +1,3 @@
-// ✅ โค้ดนี้อยู่ในหน้า AdminDashboard.tsx
-// รวม: เพิ่มเวลา + ตาราง slot + ปุ่มลบ/แก้ไข + modal แก้ไข + modal ยืนยันลบ พร้อม input เวลาแบบ 24 ชั่วโมง (text input)
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -116,7 +113,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 p-6">
+    <div className="w-full min-h-screen bg-white p-6"> {/* เปลี่ยนจาก bg-slate-50 เป็น bg-white */}
       <h1 className="text-3xl font-bold mb-6">เพิ่มตารางเวลา</h1>
 
       {/* ฟอร์มเพิ่ม */}
@@ -170,7 +167,7 @@ const AdminDashboard = () => {
       </Card>
 
       {/* ตาราง slot */}
-      <h2 className="text-xl font-bold mb-3">ตารางเวลา</h2>
+      <h2 className="text-2xl font-bold mb-3">ตารางเวลา</h2>
       <Card className="overflow-x-auto">
         <Table>
           <TableHeader>

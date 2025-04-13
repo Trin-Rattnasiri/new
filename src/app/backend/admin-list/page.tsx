@@ -217,15 +217,14 @@ const AdminPage = () => {
 
   return (
     <div className="container mx-auto py-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-2">
-          <Building2 className="h-8 w-8 text-primary" />
-          <Heading level={1} className="text-3xl font-bold">จัดการแผนก</Heading>
-        </div>
-        <Badge variant="outline" className="px-4 py-2 text-sm">
-          จำนวนแผนกทั้งหมดที่เปิด: {departmentList.length}
-        </Badge>
+    <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
+        <Heading level={1} className="text-3xl font-bold">จัดการแผนก</Heading>
       </div>
+      <Badge variant="outline" className="px-4 py-2 text-sm">
+        จำนวนแผนกทั้งหมด: {departmentList.length}
+      </Badge>
+    </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         <Card className="md:col-span-5 bg-white shadow-lg rounded-lg border-none">
