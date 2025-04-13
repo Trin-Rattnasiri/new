@@ -32,15 +32,17 @@ const DashboardPage = () => {
   }, [bannerImages.length])
 
   useEffect(() => {
-    const id = localStorage.getItem("citizenId")
-    if (id) {
-      fetch(`/api/user/profile?citizenId=${id}`)
-        .then((res) => res.json())
-        .then((data) => setUserInfo(data))
-        .catch((err) => console.error("Error fetching profile:", err))
+    const stored = localStorage.getItem("user")
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (parsed.role === "user" && parsed.citizenId) {
+        fetch(`/api/user/profile?citizenId=${parsed.citizenId}`)
+          .then((res) => res.json())
+          .then((data) => setUserInfo(data))
+          .catch((err) => console.error("Error fetching profile:", err))
+      }
     }
 
-    // ดึงรูปภาพข่าวสารมาใช้แสดง
     fetch("/api/admin/new")
       .then(res => res.json())
       .then(data => {
@@ -79,7 +81,6 @@ const DashboardPage = () => {
           onClick={handleLogout}
         >
           <LogOut className="w-4 h-4 mr-1" />
-          
         </Button>
       </div>
 
@@ -92,7 +93,7 @@ const DashboardPage = () => {
         <div className="ml-3">
           <div className="font-bold text-sm">{userInfo?.name || ""}</div>
           <div className="text-white text-sm bg-blue-700 px-2 py-0.5 rounded-md mt-1">
-             {userInfo?.hn || "HN00000000"}
+            {userInfo?.hn || "HN00000000"}
           </div>
         </div>
       </div>

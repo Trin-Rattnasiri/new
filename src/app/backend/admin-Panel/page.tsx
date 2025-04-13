@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Select from 'react-select';
 import { format } from 'date-fns';
 import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, FileTextIcon, HashIcon } from 'lucide-react';
 
@@ -39,9 +40,22 @@ interface Slot {
   department_name: string;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'ยืนยันแล้ว',
+  pending: 'รอดำเนินการ',
+  cancelled: 'ยกเลิกแล้ว',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  confirmed: 'bg-green-100 text-green-800 border-green-300',
+  pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  cancelled: 'bg-red-100 text-red-800 border-red-300',
+};
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [slotList, setSlotList] = useState<Slot[]>([]);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [departmentFilter, setDepartmentFilter] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -49,49 +63,25 @@ export default function AdminBookingsPage() {
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return 'ยืนยันแล้ว';
-      case 'pending':
-        return 'รอดำเนินการ';
-      case 'cancelled':
-        return 'ยกเลิกแล้ว';
-      default:
-        return status;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   useEffect(() => {
-    const fetchAllData = async () => {
+    const fetchAll = async () => {
       try {
-        const resBookings = await fetch('/api/admin/appointment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
-        const resSlots = await fetch('/api/admin/slots');
+        const [bookingRes, slotRes] = await Promise.all([
+          fetch('/api/admin/appointment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          }),
+          fetch('/api/admin/slots'),
+        ]);
 
-        if (!resBookings.ok || !resSlots.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+        if (!bookingRes.ok || !slotRes.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
 
-        const dataBookings = await resBookings.json();
-        const dataSlots = await resSlots.json();
+        const bookingData = await bookingRes.json();
+        const slotData = await slotRes.json();
 
-        setBookings(dataBookings.bookings || []);
-        setSlotList(dataSlots.slots || []);
+        setBookings(bookingData.bookings || []);
+        setSlots(slotData.slots || []);
       } catch (err) {
         console.error(err);
         setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
@@ -99,17 +89,29 @@ export default function AdminBookingsPage() {
         setLoading(false);
       }
     };
-
-    fetchAllData();
+    fetchAll();
   }, []);
 
-  const confirmStatusChange = (id: number, status: string) => {
-    setSelectedBookingId(id);
-    setSelectedStatus(status);
-    setOpenConfirmModal(true);
-  };
+  const departmentOptions = useMemo(
+    () => [
+      { value: '', label: 'ทุกแผนก' },
+      ...Array.from(new Set(bookings.map((b) => b.department_name))).map((dept) => ({
+        value: dept,
+        label: dept,
+      })),
+    ],
+    [bookings]
+  );
 
-  const changeConfirmedStatus = async () => {
+  const filteredBookings = departmentFilter
+    ? bookings.filter((b) => b.department_name === departmentFilter)
+    : bookings;
+
+  const sortedSlotList = [...slots].sort(
+    (a, b) => new Date(a.slot_date).getTime() - new Date(b.slot_date).getTime()
+  );
+
+  const confirmStatusChange = async () => {
     if (!selectedBookingId || !selectedStatus) return;
     try {
       const res = await fetch('/api/admin/appointment', {
@@ -126,17 +128,11 @@ export default function AdminBookingsPage() {
       }
     } catch (err) {
       console.error(err);
-      alert('เกิดข้อผิดพลาด');
     } finally {
       setOpenConfirmModal(false);
       setSelectedBookingId(null);
       setSelectedStatus(null);
     }
-  };
-
-  const confirmDelete = (id: number) => {
-    setSelectedBookingId(id);
-    setOpenDeleteModal(true);
   };
 
   const deleteConfirmed = async () => {
@@ -147,44 +143,22 @@ export default function AdminBookingsPage() {
       });
       if (res.ok) {
         setBookings((prev) => prev.filter((b) => b.id !== selectedBookingId));
-      } else {
-        alert('ลบไม่สำเร็จ');
       }
     } catch (err) {
       console.error(err);
-      alert('เกิดข้อผิดพลาดขณะลบ');
     } finally {
       setOpenDeleteModal(false);
       setSelectedBookingId(null);
     }
   };
 
-  const sortedSlotList = [...slotList].sort((a, b) => new Date(a.slot_date).getTime() - new Date(b.slot_date).getTime());
-  const sortedBookings = [...bookings].sort((a, b) => new Date(a.slot_date).getTime() - new Date(b.slot_date).getTime());
-
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-lg text-gray-600 animate-pulse">กำลังโหลดข้อมูล...</p>
-      </div>
-    );
-  if (error)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-lg text-red-500">{error}</p>
-      </div>
-    );
+  if (loading) return <p className="text-center mt-10">กำลังโหลดข้อมูล...</p>;
+  if (error) return <p className="text-center mt-10 text-red-600">{error}</p>;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-800">แผนกที่เปิด</h1>
-        </div>
-
-        {/* Slots Table */}
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="text-xl text-gray-700">ตารางนัดหมาย</CardTitle>
           </CardHeader>
@@ -201,7 +175,7 @@ export default function AdminBookingsPage() {
                 </TableHeader>
                 <TableBody>
                   {sortedSlotList.map((slot) => (
-                    <TableRow key={slot.id} className="hover:bg-gray-50 transition-colors">
+                    <TableRow key={slot.id}>
                       <TableCell>{slot.department_name}</TableCell>
                       <TableCell>{format(new Date(slot.slot_date), 'dd/MM/yyyy')}</TableCell>
                       <TableCell>{`${slot.start_time} - ${slot.end_time}`}</TableCell>
@@ -214,10 +188,22 @@ export default function AdminBookingsPage() {
           </CardContent>
         </Card>
 
-        {/* Bookings Table */}
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <CardHeader>
-            <CardTitle className="text-xl text-gray-700">รายการจองทั้งหมด</CardTitle>
+          <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col">
+              <CardTitle className="text-2xl font-bold text-gray-800">รายการนัดหมาย</CardTitle>
+          
+          </div>
+            <div className="w-full sm:w-64">
+              <Select
+                options={departmentOptions}
+                onChange={(selected) => setDepartmentFilter(selected?.value || '')}
+                value={departmentOptions.find((opt) => opt.value === departmentFilter)}
+                placeholder="เลือกแผนก"
+                className="react-select-container"
+                classNamePrefix="react-select"
+              />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -236,58 +222,22 @@ export default function AdminBookingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedBookings.map((b) => (
-                    <TableRow key={b.id} className="hover:bg-gray-50 transition-colors">
+                  {filteredBookings.map((b) => (
+                    <TableRow key={b.id}>
                       <TableCell>{b.department_name}</TableCell>
+                      <TableCell>{format(new Date(b.slot_date), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell>{`${b.start_time} - ${b.end_time}`}</TableCell>
+                      <TableCell>{b.user_name}</TableCell>
+                      <TableCell>{b.phone_number}</TableCell>
+                      <TableCell>{b.hn}</TableCell>
+                      <TableCell>{b.booking_reference_number}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <CalendarIcon className="w-4 h-4 text-gray-400" />
-                          {format(new Date(b.slot_date), 'dd/MM/yyyy')}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <ClockIcon className="w-4 h-4 text-gray-400" />
-                          {`${b.start_time} - ${b.end_time}`}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <UserIcon className="w-4 h-4 text-gray-400" />
-                          {b.user_name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <PhoneIcon className="w-4 h-4 text-gray-400" />
-                          {b.phone_number || '-'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileTextIcon className="w-4 h-4 text-gray-400" />
-                          {b.hn}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <HashIcon className="w-4 h-4 text-gray-400" />
-                          {b.booking_reference_number}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(b.status)}>{getStatusLabel(b.status)}</Badge>
+                        <Badge className={STATUS_COLORS[b.status]}>{STATUS_LABELS[b.status]}</Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button size="sm" onClick={() => confirmStatusChange(b.id, 'confirmed')} className="bg-green-600 hover:bg-green-700 text-white">
-                          ยืนยัน
-                        </Button>
-                        <Button size="sm" onClick={() => confirmStatusChange(b.id, 'pending')} className="bg-yellow-500 hover:bg-yellow-600 text-black">
-                          รอดำเนินการ
-                        </Button>
-                        <Button size="sm" onClick={() => confirmDelete(b.id)} className="bg-red-600 hover:bg-red-700 text-white">
-                          ยกเลิก
-                        </Button>
+                        <Button size="sm" className="bg-green-600 text-white hover:bg-green-700" onClick={() => { setSelectedBookingId(b.id); setSelectedStatus('confirmed'); setOpenConfirmModal(true); }}>ยืนยัน</Button>
+                        <Button size="sm" className="bg-yellow-400 text-black hover:bg-yellow-500" onClick={() => { setSelectedBookingId(b.id); setSelectedStatus('pending'); setOpenConfirmModal(true); }}>รอดำเนินการ</Button>
+                        <Button size="sm" onClick={() => { setSelectedBookingId(b.id); setOpenDeleteModal(true); }} className="bg-red-600 text-white">ยกเลิก</Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -297,43 +247,28 @@ export default function AdminBookingsPage() {
           </CardContent>
         </Card>
 
-        {/* Delete Confirmation Modal */}
         <Dialog open={openDeleteModal} onOpenChange={setOpenDeleteModal}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>ยืนยันการลบ</DialogTitle>
-              <DialogDescription>
-                คุณแน่ใจหรือไม่ว่าต้องการลบรายการจองนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้
-              </DialogDescription>
+              <DialogDescription>คุณแน่ใจว่าต้องการลบรายการนี้?</DialogDescription>
             </DialogHeader>
-            <DialogFooter className="sm:justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenDeleteModal(false)}>
-                ยกเลิก
-              </Button>
-              <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={deleteConfirmed}>
-                ลบ
-              </Button>
+            <DialogFooter>
+              <Button onClick={() => setOpenDeleteModal(false)} variant="outline">ยกเลิก</Button>
+              <Button onClick={deleteConfirmed} className="bg-red-600 text-white">ลบ</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Status Change Confirmation Modal */}
         <Dialog open={openConfirmModal} onOpenChange={setOpenConfirmModal}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>ยืนยันการเปลี่ยนสถานะ</DialogTitle>
-              <DialogDescription>
-                คุณแน่ใจหรือไม่ว่าต้องการเปลี่ยนสถานะเป็น{' '}
-                <strong>{getStatusLabel(selectedStatus || '')}</strong>?
-              </DialogDescription>
+              <DialogDescription>คุณต้องการเปลี่ยนสถานะเป็น {STATUS_LABELS[selectedStatus || '']}</DialogDescription>
             </DialogHeader>
-            <DialogFooter className="sm:justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenConfirmModal(false)}>
-                ยกเลิก
-              </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={changeConfirmedStatus}>
-                ยืนยัน
-              </Button>
+            <DialogFooter>
+              <Button onClick={() => setOpenConfirmModal(false)} variant="outline">ยกเลิก</Button>
+              <Button onClick={confirmStatusChange} className="bg-blue-600 text-white">ยืนยัน</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

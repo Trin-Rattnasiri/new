@@ -1,10 +1,13 @@
+"use client";
+
 import React, { ReactNode } from 'react';
 import Sidebar from './sidebar';
-import { 
+import {
   BellIcon,
   User,
   Settings
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,19 +23,25 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    router.push("/");
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <Sidebar />
-      
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="border-b">
           <div className="flex h-16 items-center justify-between px-6">
-            <div className="flex items-center gap-2 lg:gap-4">
-              {/* Search input removed */}
-            </div>
+            <div className="flex items-center gap-2 lg:gap-4" />
             <div className="flex items-center gap-4">
+              {/* Bell Icon */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon">
@@ -47,6 +56,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* User Profile Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon">
@@ -56,7 +67,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>บัญชีของฉัน</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/backend/manage-admins")}>
                     <User className="mr-2 h-4 w-4" />
                     <span>โปรไฟล์</span>
                   </DropdownMenuItem>
@@ -65,13 +76,15 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     <span>ตั้งค่า</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>ออกจากระบบ</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    ออกจากระบบ
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
         </header>
-        
+
         <main className="flex-1 overflow-auto p-6">
           <div className="mx-auto max-w-7xl">
             {children}

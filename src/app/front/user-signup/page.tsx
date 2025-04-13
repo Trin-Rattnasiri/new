@@ -69,21 +69,6 @@ const SignUpPage = () => {
     setLoading(false)
   }
 
-  // สไตล์ปุ่มสีเขียวแบบ inline เพื่อให้แน่ใจว่าจะแสดงผล
-  const greenButtonStyle = {
-    background: "linear-gradient(to right, #16a34a, #166534)",
-    color: "white",
-    padding: "0.75rem",
-    borderRadius: "0.75rem",
-    fontWeight: "600",
-    fontSize: "1.125rem",
-    width: "100%",
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-    transition: "all 0.3s",
-    cursor: "pointer",
-    border: "none",
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-gray-100">
@@ -99,7 +84,6 @@ const SignUpPage = () => {
 
         <h2 className="text-3xl font-semibold text-blue-900 text-center mb-8">สมัครสมาชิก</h2>
 
-        {/* Prefix */}
         <div className="mb-5">
           <label className="block text-lg font-medium text-gray-700 mb-2">คำนำหน้าชื่อ</label>
           <select
@@ -116,7 +100,6 @@ const SignUpPage = () => {
           </select>
         </div>
 
-        {/* Name */}
         <div className="mb-5">
           <label className="block text-lg font-medium text-gray-700 mb-2">ชื่อ-นามสกุล</label>
           <input
@@ -127,7 +110,6 @@ const SignUpPage = () => {
           />
         </div>
 
-        {/* Birthday */}
         <div className="mb-5">
           <label className="block text-lg font-medium text-gray-700 mb-2">วันเกิด</label>
           <input
@@ -138,7 +120,6 @@ const SignUpPage = () => {
           />
         </div>
 
-        {/* Citizen ID */}
         <div className="mb-5">
           <label className="block text-lg font-medium text-gray-700 mb-2">เลขประจำตัวประชาชน</label>
           <input
@@ -149,7 +130,6 @@ const SignUpPage = () => {
           />
         </div>
 
-        {/* Phone Number */}
         <div className="mb-5">
           <label className="block text-lg font-medium text-gray-700 mb-2">เบอร์โทรศัพท์</label>
           <input
@@ -160,7 +140,6 @@ const SignUpPage = () => {
           />
         </div>
 
-        {/* Password */}
         <div className="mb-5">
           <label className="block text-lg font-medium text-gray-700 mb-2">รหัสผ่าน</label>
           <div className="relative">
@@ -180,7 +159,6 @@ const SignUpPage = () => {
           </div>
         </div>
 
-        {/* Confirm Password */}
         <div className="mb-8">
           <label className="block text-lg font-medium text-gray-700 mb-2">ยืนยันรหัสผ่าน</label>
           <input
@@ -191,18 +169,10 @@ const SignUpPage = () => {
           />
         </div>
 
-        {/* Submit - ใช้ทั้ง Tailwind และ inline style */}
         <button
           onClick={handleSignUp}
           disabled={loading}
           className="w-full py-3 bg-green-600 text-white text-lg font-semibold rounded-xl shadow-md hover:scale-105 transition-all duration-300 disabled:opacity-50"
-          style={greenButtonStyle}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = "scale(1.05)"
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = "scale(1)"
-          }}
         >
           {loading ? "⏳ กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
         </button>
@@ -211,6 +181,16 @@ const SignUpPage = () => {
           มีบัญชีอยู่แล้ว?{" "}
           <span className="text-blue-600 font-semibold cursor-pointer hover:underline" onClick={() => router.push("/")}>
             เข้าสู่ระบบ
+          </span>
+        </p>
+
+        <p className="text-center text-gray-600 mt-4">
+          หรือคุณเป็นแอดมิน?{" "}
+          <span
+            className="text-blue-600 font-semibold cursor-pointer hover:underline"
+            onClick={() => router.push("/front/admin-signup")}
+          >
+            สมัครแอดมินที่นี่
           </span>
         </p>
       </div>

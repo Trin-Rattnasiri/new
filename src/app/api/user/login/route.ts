@@ -3,10 +3,10 @@ import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 
 const pool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "hospital_booking",
+  host: process.env.DB_HOST!,
+  user: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+  database: process.env.DB_NAME!,
   waitForConnections: true,
   connectionLimit: 10,
 });
@@ -17,44 +17,56 @@ export async function POST(req: Request) {
     console.log("📌 Data received from frontend:", { citizenId, password });
 
     if (!citizenId || !password) {
-      console.error("❌ Missing required fields");
       return NextResponse.json({ error: "กรุณากรอกข้อมูลให้ครบ" }, { status: 400 });
     }
 
     const connection = await pool.getConnection();
-    console.log("🔍 Checking user in database...");
 
-    const [rows] = await connection.execute(
-      "SELECT * FROM user WHERE citizenId = ?",
-      [citizenId]
-    );
+    // 🔍 เช็คใน user ก่อน
+    const [userRows] = await connection.execute("SELECT * FROM user WHERE citizenId = ?", [citizenId]);
+    const users = userRows as any[];
 
-    connection.release();
+    if (users.length > 0) {
+      const user = users[0];
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) {
+        return NextResponse.json({ error: "รหัสผ่านไม่ถูกต้อง" }, { status: 401 });
+      }
 
-    const users = rows as any[];
-    if (users.length === 0) {
-      console.error("❌ User not found!");
-      return NextResponse.json({ error: "เลขบัตรประชาชนไม่มีอยู่ในระบบ" }, { status: 404 });
+      return NextResponse.json({
+        message: "เข้าสู่ระบบสำเร็จ!",
+        role: "user",
+        citizenId: user.citizenId,
+        name: user.name,
+        hn: user.hn,
+      });
     }
 
-    const user = users[0];
-    console.log("🔐 Checking password...");
+    // 🔍 ถ้าไม่เจอใน user → เช็คใน admins
+    const [adminRows] = await connection.execute("SELECT * FROM admins WHERE username = ?", [citizenId]);
+    const admins = adminRows as any[];
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      console.error("❌ Incorrect password!");
+    if (admins.length === 0) {
+      return NextResponse.json({ error: "ไม่พบผู้ใช้ในระบบ" }, { status: 404 });
+    }
+
+    const admin = admins[0];
+
+    if (!admin.is_approved) {
+      return NextResponse.json({ error: "บัญชีแอดมินยังไม่ได้รับการอนุมัติ" }, { status: 403 });
+    }
+
+    const match = await bcrypt.compare(password, admin.password);
+    if (!match) {
       return NextResponse.json({ error: "รหัสผ่านไม่ถูกต้อง" }, { status: 401 });
     }
 
-    console.log("✅ Login successful!");
-
-    // ✅ ตอบกลับข้อมูลที่ frontend ต้องใช้
     return NextResponse.json({
       message: "เข้าสู่ระบบสำเร็จ!",
-      citizenId: user.citizenId,
-      name: user.name,
-      hn: user.hn,
-    }, { status: 200 });
+      role: "admin",
+      username: admin.username,
+      position: admin.position,
+    });
 
   } catch (error) {
     console.error("🚨 Login Error:", error);

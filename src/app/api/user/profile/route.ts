@@ -20,7 +20,8 @@ export async function GET(req: Request) {
   try {
     // ไม่ดึง prefix ออกจากผลลัพธ์
     const [rows] = await connection.query(
-      `SELECT citizenId, name, phone, birthday, hn FROM user WHERE citizenId = ?`,
+      `SELECT prefix, citizenId, name, phone, birthday, hn FROM user
+ WHERE citizenId = ?`,
       [citizenId]
     )
 

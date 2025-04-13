@@ -19,8 +19,13 @@ export default function LoginPage() {
   };
 
   const handleLogin = async () => {
-    if (citizenId.length < 13 || password.length < 6) {
-      alert("⚠ กรุณากรอกเลขบัตรประชาชน 13 หลักและรหัสผ่านอย่างน้อย 6 ตัว");
+    if (password.length < 6) {
+      alert("⚠ กรุณากรอกรหัสผ่านอย่างน้อย 6 ตัว");
+      return;
+    }
+  
+    if (!citizenId || citizenId.trim().length < 3) {
+      alert("⚠ กรุณากรอกชื่อผู้ใช้หรือเลขบัตรประชาชนให้ถูกต้อง");
       return;
     }
 
@@ -32,29 +37,35 @@ export default function LoginPage() {
         body: JSON.stringify({ citizenId, password }),
       });
 
-      if (res.ok) {
-        const data = await res.json(); // ✅ สมมุติว่า backend ส่งกลับ: { name: "ชื่อ", hn: "HN1234" }
+      const data = await res.json();
 
-        // ✅ เก็บข้อมูลใน localStorage
-        localStorage.setItem("citizenId", citizenId);
-        localStorage.setItem("userName", data.name); // 👈 ต้องแน่ใจว่า backend ส่ง `name`
-        localStorage.setItem("hn", data.hn);         // 👈 และส่ง `hn` กลับมาด้วย
-
-        console.log("✅ เข้าสู่ระบบแล้ว:", {
-          citizenId,
-          userName: data.name,
-          hn: data.hn,
-        });
-
-        alert("✅ เข้าสู่ระบบสำเร็จ!");
-        router.push("/front/user-dashboard");
-      } else {
-        alert("❌ เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง");
+      if (!res.ok) {
+        alert(`❌ ${data.error}`);
+        setLoading(false);
+        return;
       }
+
+      // ✅ เก็บข้อมูลใน localStorage
+      localStorage.setItem("user", JSON.stringify(data));
+localStorage.setItem("citizenId", data.citizenId); // เพื่อใช้สร้างคิว
+localStorage.setItem("hn", data.hn);               // ✅ เพิ่มตรงนี้!
+localStorage.setItem("userName", data.name);       // ✅ และตรงนี้!
+      
+
+      alert("✅ เข้าสู่ระบบสำเร็จ!");
+
+      // ✅ redirect ตาม role
+      if (data.role === "admin") {
+        router.push("/backend/admin-dashboard");
+      } else {
+        router.push("/front/user-dashboard");
+      }
+
     } catch (error) {
       console.error("เกิดข้อผิดพลาดในการเข้าสู่ระบบ:", error);
       alert("❌ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
     }
+
     setLoading(false);
   };
 
