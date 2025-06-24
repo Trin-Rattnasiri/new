@@ -1,116 +1,129 @@
-import { NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
+import { type NextRequest, NextResponse } from "next/server"
+import mysql from "mysql2/promise"
 
-// ฟังก์ชันเชื่อมต่อฐานข้อมูล
-const getConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-  });
-};
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+})
 
-// GET /api/appointment/[booking_reference_number]
-export async function GET(
-  req: Request,
-  { params }: { params: { booking_reference_number: string } }
-) {
-  const { booking_reference_number } = params;
-  console.log("📌 รับค่า booking_reference_number:", booking_reference_number);
-
+// GET handler to fetch appointment details
+export async function GET(req: NextRequest, { params }: { params: { booking_reference_number: string } }) {
+  const connection = await pool.getConnection()
   try {
-    const connection = await getConnection();
+    const bookingReferenceNumber = params.booking_reference_number
 
-    const [rows] = await connection.execute(
+    const [rows] = await connection.query(
       `SELECT 
         b.id,
         b.name,
         b.hn,
+        u.phone AS phone_number,
+        b.created_by,
         b.status,
+        b.cancelled_by AS cancelledBy,
         b.booking_reference_number,
         b.booking_date,
         d.name AS department_name,
         s.slot_date,
         s.start_time,
-        s.end_time,
-        u.phone AS phone_number        -- ✅ เพิ่มตรงนี้
+        s.end_time
       FROM bookings b
-      LEFT JOIN departments d ON b.department_id = d.id
-      LEFT JOIN slots s ON b.slot_id = s.id
-      LEFT JOIN user u ON b.created_by = u.citizenId    -- ✅ join กับ user ด้วย citizenId
-      WHERE b.booking_reference_number = ?
-      LIMIT 1`,
-      [booking_reference_number]
-    );
-    
+      JOIN departments d ON b.department_id = d.id
+      JOIN slots s ON b.slot_id = s.id
+      LEFT JOIN user u ON b.created_by = u.citizenId
+      WHERE b.booking_reference_number = ?`,
+      [bookingReferenceNumber],
+    )
 
-    await connection.end();
-
-    const result = (rows as any[])[0];
-
-    if (!result) {
-      return NextResponse.json({ message: 'ไม่พบใบนัดในระบบ' }, { status: 404 });
+    if (!rows || (rows as any[]).length === 0) {
+      return NextResponse.json({ error: "ไม่พบข้อมูลการนัดหมาย" }, { status: 404 })
     }
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json((rows as any[])[0])
   } catch (error) {
-    console.error('❌ Error fetching appointment by reference:', error);
-    return NextResponse.json(
-      { error: 'เกิดข้อผิดพลาดในการดึงข้อมูลใบนัด' },
-      { status: 500 }
-    );
+    console.error("Error fetching appointment:", error)
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" }, { status: 500 })
+  } finally {
+    connection.release()
   }
 }
 
-// DELETE /api/appointment/[booking_reference_number]
-export async function DELETE(
-  req: Request,
-  { params }: { params: { booking_reference_number: string } }
-) {
-  const { booking_reference_number } = params;
-
+// PUT handler to update appointment status (cancel appointment)
+export async function PUT(req: NextRequest, { params }: { params: { booking_reference_number: string } }) {
+  const connection = await pool.getConnection()
   try {
-    const connection = await getConnection();
-    await connection.beginTransaction();
+    const bookingReferenceNumber = params.booking_reference_number
+    const { status, cancelledBy } = await req.json()
 
-    // ตรวจสอบว่า booking มีจริงหรือไม่ และดึง slot_id
-    const [rows] = await connection.execute(
-      `SELECT id, slot_id FROM bookings WHERE booking_reference_number = ?`,
-      [booking_reference_number]
-    );
+    // ตรวจสอบว่ามีการนัดหมายนี้หรือไม่
+    const [bookingRows] = await connection.query(
+      "SELECT id, status, slot_id FROM bookings WHERE booking_reference_number = ?",
+      [bookingReferenceNumber],
+    )
 
-    const booking = (rows as any[])[0];
-
-    if (!booking) {
-      await connection.end();
-      return NextResponse.json({ message: "ไม่พบใบนัดในระบบ" }, { status: 404 });
+    if (!bookingRows || (bookingRows as any[]).length === 0) {
+      return NextResponse.json({ error: "ไม่พบข้อมูลการนัดหมาย" }, { status: 404 })
     }
 
-    const bookingId = booking.id;
-    const slotId = booking.slot_id;
+    const booking = (bookingRows as any[])[0]
 
-    // ลบ booking
-    await connection.execute(
-      `DELETE FROM bookings WHERE id = ?`,
-      [bookingId]
-    );
+    // อัพเดทสถานะการนัดหมายเป็นยกเลิก และบันทึกว่าใครเป็นผู้ยกเลิก
+    await connection.query("UPDATE bookings SET status = ?, cancelled_by = ? WHERE booking_reference_number = ?", [
+      status,
+      cancelledBy,
+      bookingReferenceNumber,
+    ])
 
-    // คืนจำนวนที่นั่ง
-    await connection.execute(
-      `UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?`,
-      [slotId]
-    );
+    // ถ้าสถานะเดิมไม่ใช่ยกเลิก และกำลังเปลี่ยนเป็นยกเลิก ให้เพิ่มจำนวนที่นั่งว่างในช่วงเวลานั้น
+    if (booking.status !== "cancelled" && status === "cancelled") {
+      await connection.query("UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", [booking.slot_id])
+    }
 
-    await connection.commit();
-    await connection.end();
-
-    return NextResponse.json({ message: "ลบใบนัดสำเร็จ" }, { status: 200 });
+    return NextResponse.json({ message: "อัพเดทสถานะการนัดหมายเรียบร้อย" })
   } catch (error) {
-    console.error("❌ Error deleting appointment:", error);
-    return NextResponse.json(
-      { error: "เกิดข้อผิดพลาดในการลบใบนัด" },
-      { status: 500 }
-    );
+    console.error("Error updating appointment:", error)
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการอัพเดทข้อมูล" }, { status: 500 })
+  } finally {
+    connection.release()
+  }
+}
+
+// DELETE handler to remove appointment
+export async function DELETE(req: NextRequest, { params }: { params: { booking_reference_number: string } }) {
+  const connection = await pool.getConnection()
+  try {
+    const bookingReferenceNumber = params.booking_reference_number
+
+    // ตรวจสอบว่ามีการนัดหมายนี้หรือไม่
+    const [bookingRows] = await connection.query(
+      "SELECT id, status, slot_id FROM bookings WHERE booking_reference_number = ?",
+      [bookingReferenceNumber],
+    )
+
+    if (!bookingRows || (bookingRows as any[]).length === 0) {
+      return NextResponse.json({ error: "ไม่พบข้อมูลการนัดหมาย" }, { status: 404 })
+    }
+
+    const booking = (bookingRows as any[])[0]
+
+    // ถ้าสถานะไม่ใช่ยกเลิก ให้เพิ่มจำนวนที่นั่งว่างในช่วงเวลานั้น
+    if (booking.status !== "cancelled") {
+      await connection.query("UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", [booking.slot_id])
+    }
+
+    // ลบการนัดหมาย
+    await connection.query("DELETE FROM bookings WHERE booking_reference_number = ?", [bookingReferenceNumber])
+
+    return NextResponse.json({ message: "ลบการนัดหมายเรียบร้อย" })
+  } catch (error) {
+    console.error("Error deleting appointment:", error)
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการลบข้อมูล" }, { status: 500 })
+  } finally {
+    connection.release()
   }
 }

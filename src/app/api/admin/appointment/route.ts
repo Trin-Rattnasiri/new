@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
+import { type NextRequest, NextResponse } from "next/server"
+import mysql from "mysql2/promise"
 
 // Function to connect to the database
 const getConnection = async () => {
@@ -8,172 +8,192 @@ const getConnection = async () => {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-  });
-};
+  })
+}
 
-// GET handler to fetch departments
-export async function GET() {
+// GET handler to retrieve all appointments (for admin)
+export async function GET(req: NextRequest) {
+  let connection
   try {
-    const connection = await getConnection();
-    const [departments] = await connection.execute('SELECT * FROM departments ORDER BY name');
-    await connection.end();
+    connection = await getConnection()
 
-    return NextResponse.json({ departments }, { status: 200 });
+    const [rows] = await connection.query(
+      `SELECT 
+        b.id,
+        b.name AS user_name,
+        b.hn,
+        u.phone AS phone_number,
+        u.citizenId AS id_card_number,
+        b.created_by,
+        b.status,
+        b.cancelled_by,
+        b.booking_reference_number,
+        b.booking_date,
+        d.name AS department_name,
+        s.slot_date,
+        s.start_time,
+        s.end_time
+      FROM bookings b
+      JOIN departments d ON b.department_id = d.id
+      JOIN slots s ON b.slot_id = s.id
+      LEFT JOIN user u ON b.created_by = u.citizenId
+      ORDER BY s.slot_date DESC, s.start_time ASC`,
+    )
+
+    return NextResponse.json({ bookings: rows })
   } catch (error) {
-    console.error('Error fetching departments:', error);
-    return NextResponse.json({ error: 'Failed to fetch departments' }, { status: 500 });
+    console.error("Error fetching appointments:", error)
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" }, { status: 500 })
+  } finally {
+    if (connection) await connection.end()
   }
 }
 
-// POST handler to fetch slots by department or bookings by slot
-export async function POST(request: NextRequest) {
+// POST handler for filtered appointments (for admin)
+export async function POST(req: NextRequest) {
+  let connection
   try {
-    const body = await request.json();
-    const connection = await getConnection();
+    connection = await getConnection()
+    const { filters } = await req.json()
 
-    if (body.departmentId && !body.slotId) {
-      const [slots] = await connection.execute(
-        'SELECT * FROM slots WHERE department_id = ? ORDER BY slot_date',
-        [body.departmentId]
-      );
-      await connection.end();
-      return NextResponse.json({ slots }, { status: 200 });
-    }
-    if (!body.departmentId && !body.slotId) {
-      const [bookings] = await connection.execute(`
-        SELECT 
-          b.id,
-          b.name AS user_name,
-          b.hn,
-          u.phone AS phone_number,
-          b.created_by AS id_card_number,
-          b.status,
-          b.booking_reference_number,
-          b.booking_date,
-          d.name AS department_name,
-          s.slot_date,
-          s.start_time,
-          s.end_time
-        FROM bookings b
-        JOIN departments d ON b.department_id = d.id
-        JOIN slots s ON b.slot_id = s.id
-        LEFT JOIN user u ON b.created_by = u.citizenId
-        ORDER BY b.id DESC
-      `)
-      await connection.end()
-      return NextResponse.json({ bookings }, { status: 200 })
-    }
-    await connection.end();
-    return NextResponse.json({ error: 'Invalid request parameters' }, { status: 400 });
-  } catch (error) {
-    console.error('Error processing request:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
-  }
-}
+    let query = `SELECT 
+      b.id,
+      b.name AS user_name,
+      b.hn,
+      u.phone AS phone_number,
+      u.citizenId AS id_card_number,
+      b.created_by,
+      b.status,
+      b.cancelled_by,
+      b.booking_reference_number,
+      b.booking_date,
+      d.name AS department_name,
+      s.slot_date,
+      s.start_time,
+      s.end_time
+    FROM bookings b
+    JOIN departments d ON b.department_id = d.id
+    JOIN slots s ON b.slot_id = s.id
+    LEFT JOIN user u ON b.created_by = u.citizenId`
 
-// PUT handler to update a booking status
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
+    const queryParams: any[] = []
 
-    if (!body.bookingId || !body.status) {
-      return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
-    }
+    // Add filters if provided
+    if (filters && Object.keys(filters).length > 0) {
+      query += " WHERE "
+      const conditions = []
 
-    const connection = await getConnection();
-    await connection.beginTransaction();
-
-    try {
-      const [bookingRows] = await connection.execute(
-        'SELECT status, slot_id FROM bookings WHERE id = ?',
-        [body.bookingId]
-      );
-
-      if (!bookingRows || (bookingRows as any[]).length === 0) {
-        await connection.rollback();
-        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      if (filters.department) {
+        conditions.push("d.id = ?")
+        queryParams.push(filters.department)
       }
 
-      const currentBooking = (bookingRows as any[])[0];
-      const currentStatus = currentBooking.status;
-      const slotId = currentBooking.slot_id;
-
-      await connection.execute(
-        'UPDATE bookings SET status = ? WHERE id = ?',
-        [body.status, body.bookingId]
-      );
-
-      if (currentStatus !== 'cancelled' && body.status === 'cancelled') {
-        await connection.execute(
-          'UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?',
-          [slotId]
-        );
-      } else if (currentStatus === 'cancelled' && (body.status === 'pending' || body.status === 'confirmed')) {
-        await connection.execute(
-          'UPDATE slots SET available_seats = available_seats - 1 WHERE id = ?',
-          [slotId]
-        );
+      if (filters.status) {
+        conditions.push("b.status = ?")
+        queryParams.push(filters.status)
       }
 
-      await connection.commit();
-      await connection.end();
+      if (filters.date) {
+        conditions.push("s.slot_date = ?")
+        queryParams.push(filters.date)
+      }
 
-      return NextResponse.json({ message: 'Booking status updated successfully' }, { status: 200 });
-    } catch (error) {
-      await connection.rollback();
-      throw error;
+      if (filters.search) {
+        conditions.push("(b.name LIKE ? OR b.hn LIKE ? OR b.booking_reference_number LIKE ?)")
+        const searchTerm = `%${filters.search}%`
+        queryParams.push(searchTerm, searchTerm, searchTerm)
+      }
+
+      query += conditions.join(" AND ")
     }
+
+    query += " ORDER BY s.slot_date DESC, s.start_time ASC"
+
+    const [rows] = await connection.query(query, queryParams)
+
+    return NextResponse.json({ bookings: rows })
   } catch (error) {
-    console.error('Error updating booking status:', error);
-    return NextResponse.json({ error: 'Failed to update booking status' }, { status: 500 });
+    console.error("Error fetching filtered appointments:", error)
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูล" }, { status: 500 })
+  } finally {
+    if (connection) await connection.end()
   }
 }
 
-// DELETE handler to remove a booking
-export async function DELETE(request: NextRequest) {
+// PUT handler to update appointment status (for admin)
+export async function PUT(req: NextRequest) {
+  let connection
   try {
-    const { searchParams } = new URL(request.url);
-    const bookingId = searchParams.get('bookingId');
+    connection = await getConnection()
+    const { bookingId, status } = await req.json()
+
+    if (!bookingId || !status) {
+      return NextResponse.json({ error: "ข้อมูลไม่ครบถ้วน" }, { status: 400 })
+    }
+
+    // ตรวจสอบว่ามีการนัดหมายนี้หรือไม่
+    const [bookingRows] = await connection.query("SELECT id, status, slot_id FROM bookings WHERE id = ?", [bookingId])
+
+    if (!bookingRows || (bookingRows as any[]).length === 0) {
+      return NextResponse.json({ error: "ไม่พบข้อมูลการนัดหมาย" }, { status: 404 })
+    }
+
+    const booking = (bookingRows as any[])[0]
+
+    // อัพเดทสถานะการนัดหมาย
+    await connection.query("UPDATE bookings SET status = ? WHERE id = ?", [status, bookingId])
+
+    // ถ้าสถานะเดิมไม่ใช่ยกเลิก และกำลังเปลี่ยนเป็นยกเลิก ให้เพิ่มจำนวนที่นั่งว่างในช่วงเวลานั้น
+    if (booking.status !== "cancelled" && status === "cancelled") {
+      await connection.query("UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", [booking.slot_id])
+
+      // เพิ่มการบันทึกว่ายกเลิกโดย admin
+      await connection.query("UPDATE bookings SET cancelled_by = ? WHERE id = ?", ["admin", bookingId])
+    }
+
+    return NextResponse.json({ message: "อัพเดทสถานะการนัดหมายเรียบร้อย" })
+  } catch (error) {
+    console.error("Error updating appointment:", error)
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการอัพเดทข้อมูล" }, { status: 500 })
+  } finally {
+    if (connection) await connection.end()
+  }
+}
+
+// DELETE handler to delete appointment (for admin)
+export async function DELETE(req: NextRequest) {
+  let connection
+  try {
+    connection = await getConnection()
+    const url = new URL(req.url)
+    const bookingId = url.searchParams.get("bookingId")
 
     if (!bookingId) {
-      return NextResponse.json({ error: 'Missing booking ID' }, { status: 400 });
+      return NextResponse.json({ error: "ไม่ระบุรหัสการนัดหมาย" }, { status: 400 })
     }
 
-    const connection = await getConnection();
-    await connection.beginTransaction();
+    // ตรวจสอบว่ามีการนัดหมายนี้หรือไม่
+    const [bookingRows] = await connection.query("SELECT id, slot_id, status FROM bookings WHERE id = ?", [bookingId])
 
-    try {
-      const [bookingRows] = await connection.execute(
-        'SELECT status, slot_id FROM bookings WHERE id = ?',
-        [bookingId]
-      );
-
-      if (!bookingRows || (bookingRows as any[]).length === 0) {
-        await connection.rollback();
-        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
-      }
-
-      const booking = (bookingRows as any[])[0];
-
-      if (booking.status !== 'cancelled') {
-        await connection.execute(
-          'UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?',
-          [booking.slot_id]
-        );
-      }
-
-      await connection.execute('DELETE FROM bookings WHERE id = ?', [bookingId]);
-
-      await connection.commit();
-      await connection.end();
-
-      return NextResponse.json({ message: 'Booking deleted successfully' }, { status: 200 });
-    } catch (error) {
-      await connection.rollback();
-      throw error;
+    if (!bookingRows || (bookingRows as any[]).length === 0) {
+      return NextResponse.json({ error: "ไม่พบข้อมูลการนัดหมาย" }, { status: 404 })
     }
+
+    const booking = (bookingRows as any[])[0]
+
+    // ถ้าสถานะไม่ใช่ยกเลิก ให้เพิ่มจำนวนที่นั่งว่างในช่วงเวลานั้น
+    if (booking.status !== "cancelled") {
+      await connection.query("UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", [booking.slot_id])
+    }
+
+    // ลบข้อมูลการนัดหมาย
+    await connection.query("DELETE FROM bookings WHERE id = ?", [bookingId])
+
+    return NextResponse.json({ message: "ลบข้อมูลการนัดหมายเรียบร้อย" })
   } catch (error) {
-    console.error('Error deleting booking:', error);
-    return NextResponse.json({ error: 'Failed to delete booking' }, { status: 500 });
+    console.error("Error deleting appointment:", error)
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการลบข้อมูล" }, { status: 500 })
+  } finally {
+    if (connection) await connection.end()
   }
 }

@@ -85,7 +85,7 @@ export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [slots, setSlots] = useState<Slot[]>([])
   const [departmentFilter, setDepartmentFilter] = useState<string>("")
-  const [statusFilter, setStatusFilter] = useState<string>("pending")
+  const [statusFilter, setStatusFilter] = useState<string>("confirmed")
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [timeFilter, setTimeFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)

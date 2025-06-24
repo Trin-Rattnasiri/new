@@ -183,16 +183,6 @@ const SignUpPage = () => {
             เข้าสู่ระบบ
           </span>
         </p>
-
-        <p className="text-center text-gray-600 mt-4">
-          หรือคุณเป็นแอดมิน?{" "}
-          <span
-            className="text-blue-600 font-semibold cursor-pointer hover:underline"
-            onClick={() => router.push("/front/admin-signup")}
-          >
-            สมัครแอดมินที่นี่
-          </span>
-        </p>
       </div>
     </div>
   )

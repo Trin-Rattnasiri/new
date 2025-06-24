@@ -25,7 +25,7 @@ import { format } from 'date-fns';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Clock, Edit, Trash2, Plus, RefreshCw } from "lucide-react";
+import { CalendarIcon, Clock, Edit, Trash2, Plus, RefreshCw } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -240,14 +240,14 @@ const AdminDashboard = () => {
     : slotList;
 
     return (
-      <div className="w-full min-h-screen bg-white p-6">
+      <div className="w-full min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold text-gray-800">ระบบจัดการตารางเวลา</h1>
             <Button 
   onClick={fetchSlots}
   variant="default"
-  className="bg-black text-white hover:bg-gray-800 flex items-center gap-2"
+  className="bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
 >
   <RefreshCw size={16} />
   รีเฟรช
@@ -362,7 +362,7 @@ const AdminDashboard = () => {
                     setOpenConfirmModal(true);
                   }
                 }}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Plus size={16} />
                 เพิ่มเวลา
@@ -435,7 +435,7 @@ const AdminDashboard = () => {
                               <Button 
                                 size="sm" 
                                 variant="outline"
-                                className="h-8 px-2 flex items-center gap-1"
+                                className="h-8 px-2 flex items-center gap-1 bg-yellow-400 text-black hover:bg-yellow-500 border-yellow-400"
                                 onClick={() => handleEdit(slot)}
                               >
                                 <Edit size={14} />
@@ -444,7 +444,7 @@ const AdminDashboard = () => {
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                className="h-8 px-2 flex items-center gap-1"
+                                className="h-8 px-2 flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white"
                                 onClick={() => {
                                   setDeleteSlotId(slot.id);
                                   setOpenDeleteModal(true);
@@ -492,7 +492,7 @@ const AdminDashboard = () => {
               
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpenConfirmModal(false)}>ยกเลิก</Button>
-                <Button onClick={handleAddSlot}>ยืนยันการเพิ่ม</Button>
+                <Button onClick={handleAddSlot} className="bg-blue-600 hover:bg-blue-700 text-white">ยืนยันการเพิ่ม</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -571,7 +571,7 @@ const AdminDashboard = () => {
               )}
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpenEditModal(false)}>ยกเลิก</Button>
-                <Button onClick={handleUpdateSlot}>บันทึกการแก้ไข</Button>
+                <Button onClick={handleUpdateSlot} className="bg-green-600 hover:bg-green-700 text-white">บันทึกการแก้ไข</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -587,7 +587,7 @@ const AdminDashboard = () => {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">
                   ยืนยันการลบ
                 </AlertDialogAction>
               </AlertDialogFooter>

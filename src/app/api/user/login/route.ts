@@ -61,11 +61,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "รหัสผ่านไม่ถูกต้อง" }, { status: 401 });
     }
 
+    // ✅ ส่งตำแหน่งเป็น role เช่น 'superadmin' หรือ 'เจ้าหน้าที่'
     return NextResponse.json({
       message: "เข้าสู่ระบบสำเร็จ!",
-      role: "admin",
+      role: admin.position,
       username: admin.username,
-      position: admin.position,
     });
 
   } catch (error) {

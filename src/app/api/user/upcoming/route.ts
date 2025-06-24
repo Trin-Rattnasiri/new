@@ -28,6 +28,7 @@ export async function GET(req: Request) {
       `SELECT 
         b.booking_reference_number, 
         b.status, 
+        b.cancelled_by AS cancelledBy,
         u.name AS user_name,          
         s.slot_date, 
         s.start_time, 
@@ -40,9 +41,8 @@ export async function GET(req: Request) {
       WHERE b.created_by = ?
       AND s.slot_date >= CURDATE()
       ORDER BY s.slot_date ASC, s.start_time ASC`,
-      [createdBy]
-    );
-    
+      [createdBy],
+    )
 
     return NextResponse.json(rows)
   } catch (error) {
