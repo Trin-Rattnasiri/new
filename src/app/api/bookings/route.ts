@@ -16,18 +16,16 @@ export async function GET(req: Request) {
   let connection;
   try {
     connection = await getConnection();
-    // ใช้ URLSearchParams เพื่อดึงค่าจาก query parameters
     const url = new URL(req.url);
-    const departmentId = url.searchParams.get('departmentId'); // ใช้ get() แทนการใช้ split() เพื่อดึง query parameter
+    const departmentId = url.searchParams.get('departmentId');
     
-    let query = 'SELECT * FROM departments'; // ดึงข้อมูลแผนกทั้งหมด
+    let query = 'SELECT * FROM departments';
     if (departmentId) {
-      // ถ้ามี departmentId ใน query parameters ให้ดึงข้อมูลวันที่ที่สามารถเลือกได้จากแผนกนั้น
       query = `
         SELECT s.slot_date
         FROM slots s
         WHERE s.department_id = ?
-        GROUP BY s.slot_date`; // ใช้ GROUP BY เพื่อดึงวันที่ที่ไม่ซ้ำกัน
+        GROUP BY s.slot_date`;
     }
     
     const [rows]: [mysql.RowDataPacket[], any] = await connection.query(query, departmentId ? [departmentId] : []);
@@ -37,7 +35,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลแผนกหรือวันที่' }, { status: 500 });
   } finally {
     if (connection) {
-      await connection.end(); // ปิดการเชื่อมต่อเมื่อเสร็จสิ้น
+      await connection.end();
     }
   }
 }
@@ -46,16 +44,14 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   let connection;
   try {
-    // รับข้อมูล JSON จาก body
     const body = await req.json();
-    const { user_name, department_id, slot_id } = body;
+    const { user_name, department_id, slot_id, id_card_number, created_by } = body;
     
     // ตรวจสอบข้อมูลที่จำเป็น
     if (!user_name || !department_id || !slot_id) {
       return NextResponse.json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
     }
     
-    // เชื่อมต่อฐานข้อมูล
     connection = await getConnection();
     
     // ตรวจสอบว่ายังมีที่นั่งว่างหรือไม่
@@ -66,16 +62,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'ไม่มีที่นั่งว่างในช่วงเวลานี้' }, { status: 400 });
     }
     
-    // เริ่ม transaction เพื่อป้องกันการจองซ้ำ
+    // เริ่ม transaction
     await connection.beginTransaction();
     
     try {
+      // สร้าง booking reference number
+      const today = new Date();
+      const dateStr = today.getFullYear().toString() + 
+                     (today.getMonth() + 1).toString().padStart(2, '0') + 
+                     today.getDate().toString().padStart(2, '0');
+      
+      // หา booking number ถัดไป
+      const [countResult]: [mysql.RowDataPacket[], any] = await connection.query(
+        'SELECT COUNT(*) as count FROM bookings WHERE DATE(booking_date) = CURDATE()'
+      );
+      const bookingNumber = (countResult[0].count + 1).toString().padStart(5, '0');
+      const bookingReferenceNumber = `${dateStr}-${bookingNumber}`;
+      
       // บันทึกข้อมูลการจอง
       const insertQuery = `
-        INSERT INTO bookings (user_name, department_id, slot_id, booking_date)
-        VALUES (?, ?, ?, NOW())
+        INSERT INTO bookings (user_name, department_id, slot_id, booking_date, booking_reference_number, id_card_number, created_by)
+        VALUES (?, ?, ?, NOW(), ?, ?, ?)
       `;
-      await connection.query(insertQuery, [user_name, department_id, slot_id]);
+      await connection.query(insertQuery, [user_name, department_id, slot_id, bookingReferenceNumber, id_card_number, created_by]);
       
       // อัพเดทจำนวนที่นั่งว่าง
       const updateQuery = `
@@ -86,17 +95,20 @@ export async function POST(req: Request) {
       const [updateResult]: [mysql.ResultSetHeader, any] = await connection.query(updateQuery, [slot_id]);
       
       if (updateResult.affectedRows === 0) {
-        // ไม่มีการอัพเดท (อาจเกิดจากที่นั่งเต็มแล้ว)
         await connection.rollback();
         return NextResponse.json({ message: 'ไม่สามารถจองได้ ที่นั่งอาจเต็มแล้ว' }, { status: 400 });
       }
       
       // commit transaction
       await connection.commit();
+
+      // ส่งผลลัพธ์กลับ
+      return NextResponse.json({ 
+        message: 'จองคิวสำเร็จ',
+        bookingReferenceNumber: bookingReferenceNumber
+      }, { status: 201 });
       
-      return NextResponse.json({ message: 'จองคิวสำเร็จ' }, { status: 201 });
     } catch (error) {
-      // หากเกิดข้อผิดพลาด ให้ rollback transaction
       await connection.rollback();
       throw error;
     }
@@ -109,7 +121,7 @@ export async function POST(req: Request) {
     }, { status: 500 });
   } finally {
     if (connection) {
-      await connection.end(); // ปิดการเชื่อมต่อเมื่อเสร็จสิ้น
+      await connection.end();
     }
   }
 }

@@ -120,41 +120,198 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT handler to update appointment status (for admin)
+// PUT handler to update appointment status with LINE notification
 export async function PUT(req: NextRequest) {
+  console.log('🔄 PUT /api/admin/appointment - Updating appointment status');
+  
   let connection
   try {
     connection = await getConnection()
-    const { bookingId, status } = await req.json()
+    
+    let body;
+    try {
+      body = await req.json()
+      console.log('📝 Request body:', JSON.stringify(body, null, 2));
+    } catch (parseError) {
+      console.error('❌ Error parsing JSON:', parseError);
+      return NextResponse.json({ error: "Invalid JSON format" }, { status: 400 });
+    }
+    
+    const { bookingId, status, admin_note, updated_by } = body;
 
     if (!bookingId || !status) {
-      return NextResponse.json({ error: "ข้อมูลไม่ครบถ้วน" }, { status: 400 })
+      console.log('❌ Missing required fields:', { bookingId, status });
+      return NextResponse.json({ error: "ข้อมูลไม่ครบถ้วน (ต้องมี bookingId และ status)" }, { status: 400 })
+    }
+
+    // ตรวจสอบสถานะที่อนุญาต
+    const allowedStatuses = ['pending', 'confirmed', 'approved', 'rejected', 'cancelled'];
+    if (!allowedStatuses.includes(status)) {
+      console.log('❌ Invalid status:', status);
+      return NextResponse.json({ 
+        error: `สถานะต้องเป็นหนึ่งใน: ${allowedStatuses.join(', ')}` 
+      }, { status: 400 });
     }
 
     // ตรวจสอบว่ามีการนัดหมายนี้หรือไม่
-    const [bookingRows] = await connection.query("SELECT id, status, slot_id FROM bookings WHERE id = ?", [bookingId])
+    const [bookingRows] = await connection.query(`
+      SELECT 
+        b.id, 
+        b.status, 
+        b.slot_id, 
+        b.created_by, 
+        b.booking_reference_number,
+        b.name,
+        d.name as department_name,
+        s.start_time,
+        s.end_time,
+        s.slot_date
+      FROM bookings b
+      LEFT JOIN departments d ON b.department_id = d.id
+      LEFT JOIN slots s ON b.slot_id = s.id
+      WHERE b.id = ?
+    `, [bookingId])
 
     if (!bookingRows || (bookingRows as any[]).length === 0) {
+      console.log('❌ Booking not found:', bookingId);
       return NextResponse.json({ error: "ไม่พบข้อมูลการนัดหมาย" }, { status: 404 })
     }
 
     const booking = (bookingRows as any[])[0]
+    const oldStatus = booking.status;
+
+    console.log('📋 Current status:', oldStatus, '→ New status:', status);
 
     // อัพเดทสถานะการนัดหมาย
     await connection.query("UPDATE bookings SET status = ? WHERE id = ?", [status, bookingId])
+    console.log('✅ Booking status updated successfully');
 
-    // ถ้าสถานะเดิมไม่ใช่ยกเลิก และกำลังเปลี่ยนเป็นยกเลิก ให้เพิ่มจำนวนที่นั่งว่างในช่วงเวลานั้น
-    if (booking.status !== "cancelled" && status === "cancelled") {
+    // จัดการที่นั่งตามสถานะ
+    if (oldStatus !== "cancelled" && status === "cancelled") {
+      // ยกเลิก -> คืนที่นั่ง
       await connection.query("UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", [booking.slot_id])
-
-      // เพิ่มการบันทึกว่ายกเลิกโดย admin
-      await connection.query("UPDATE bookings SET cancelled_by = ? WHERE id = ?", ["admin", bookingId])
+      
+      // อัปเดต cancelled_by
+      await connection.query("UPDATE bookings SET cancelled_by = ? WHERE id = ?", [updated_by || "admin", bookingId])
+      
+      console.log('🔄 คืนที่นั่งให้ slot แล้ว (ยกเลิก)');
+    } 
+    else if (['rejected', 'cancelled', 'pending'].includes(oldStatus) && 
+             ['confirmed', 'approved'].includes(status)) {
+      // ยืนยัน/อนุมัติ -> หักที่นั่ง
+      const [slotCheck] = await connection.query(
+        'SELECT available_seats FROM slots WHERE id = ?',
+        [booking.slot_id]
+      );
+      const slotData = (slotCheck as any[])[0];
+      
+      if (slotData && slotData.available_seats > 0) {
+        await connection.query("UPDATE slots SET available_seats = available_seats - 1 WHERE id = ?", [booking.slot_id])
+        console.log('🔄 หักที่นั่งออกจาก slot แล้ว (ยืนยัน)');
+      } else {
+        console.log('❌ ไม่สามารถยืนยันได้ เนื่องจากที่นั่งเต็ม');
+        return NextResponse.json({ 
+          error: 'ไม่สามารถยืนยันได้ เนื่องจากที่นั่งเต็มแล้ว' 
+        }, { status: 400 });
+      }
     }
 
-    return NextResponse.json({ message: "อัพเดทสถานะการนัดหมายเรียบร้อย" })
+    // ===== ส่งแจ้งเตือนไป LINE =====
+    let lineNotificationStatus = 'ไม่ได้ส่ง';
+    
+    try {
+      console.log('🔍 เริ่มการส่งแจ้งเตือนการอัปเดตสถานะไป LINE...');
+      
+      if (!booking.created_by) {
+        console.log('❌ ไม่มี citizenId');
+        lineNotificationStatus = 'ไม่มี citizenId';
+      } else {
+        // หา LINE ID ของผู้ใช้
+        const [userRows]: [any[], any] = await connection.query(
+          "SELECT line_id, citizenId FROM user WHERE citizenId = ?",
+          [booking.created_by]
+        );
+        
+        const user = userRows[0];
+        
+        if (!user || !user.line_id) {
+          console.log('❌ ไม่พบ LINE ID');
+          lineNotificationStatus = 'ไม่พบ LINE ID';
+        } else if (!process.env.NEXT_PUBLIC_BASE_URL) {
+          console.log('❌ ไม่พบ BASE_URL');
+          lineNotificationStatus = 'ไม่พบ BASE_URL';
+        } else {
+          // เตรียมข้อมูลสำหรับแจ้งเตือน
+          const statusMessage = {
+            'confirmed': 'ได้รับการยืนยันแล้ว',
+            'approved': 'ได้รับการอนุมัติแล้ว',
+            'rejected': 'ถูกปฏิเสธ',
+            'cancelled': 'ถูกยกเลิก',
+            'pending': 'อยู่ในขั้นตอนการพิจารณา'
+          };
+
+          const statusUpdateDetails = {
+            referenceNumber: booking.booking_reference_number,
+            department: booking.department_name || 'ไม่ระบุแผนก',
+            date: booking.slot_date ? new Date(booking.slot_date).toLocaleDateString('th-TH') : 'ไม่ระบุวันที่',
+            time: booking.start_time && booking.end_time ? `${booking.start_time} - ${booking.end_time}` : 'ไม่ระบุเวลา',
+            oldStatus: oldStatus,
+            newStatus: status,
+            statusMessage: statusMessage[status] || status,
+            adminNote: admin_note || null,
+            notificationType: 'status_update'
+          };
+
+          console.log('📤 เตรียมส่งข้อมูลอัปเดตสถานะไป LINE:', statusUpdateDetails);
+
+          // ส่งแจ้งเตือนไป LINE
+          const lineApiUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/line-notification`;
+          
+          const lineResponse = await fetch(lineApiUrl, {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              userId: user.line_id,
+              statusUpdateDetails
+            }),
+          });
+
+          console.log('📤 LINE API Response Status:', lineResponse.status);
+
+          if (lineResponse.ok) {
+            console.log('✅ ส่งแจ้งเตือนการอัปเดตสถานะไป LINE สำเร็จ');
+            lineNotificationStatus = 'ส่งสำเร็จ';
+          } else {
+            console.log('❌ ส่งแจ้งเตือนการอัปเดตสถานะไป LINE ไม่สำเร็จ');
+            lineNotificationStatus = `ส่งไม่สำเร็จ: ${lineResponse.status}`;
+          }
+        }
+      }
+    } catch (lineError) {
+      console.error("❌ Error ในการส่งแจ้งเตือนการอัปเดตสถานะไป LINE:", lineError);
+      lineNotificationStatus = `Error: ${lineError.message}`;
+    }
+
+    console.log('✅ PUT appointment status update successful');
+    
+    return NextResponse.json({ 
+      message: "อัพเดทสถานะการนัดหมายเรียบร้อย",
+      booking_id: bookingId,
+      old_status: oldStatus,
+      new_status: status,
+      admin_note: admin_note,
+      lineNotificationStatus: lineNotificationStatus,
+      booking_reference_number: booking.booking_reference_number
+    })
+
   } catch (error) {
-    console.error("Error updating appointment:", error)
-    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการอัพเดทข้อมูล" }, { status: 500 })
+    console.error("❌ Error updating appointment:", error)
+    return NextResponse.json({ 
+      error: "เกิดข้อผิดพลาดในการอัพเดทข้อมูล", 
+      details: error.message 
+    }, { status: 500 })
   } finally {
     if (connection) await connection.end()
   }

@@ -7,8 +7,6 @@ import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LogOut,
-  Menu,
-  X,
   Clock,
   UserIcon,
   ChevronDown,
@@ -19,13 +17,11 @@ import {
   Calendar,
   Building,
   Bell,
-  Settings,
   AlertCircle,
   LayoutDashboard,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -97,7 +93,7 @@ const sidebarItems: SidebarItem[] = [
     icon: <ShieldCheck size={20} />,
     requireSuperAdmin: true,
   },
-   {
+  {
     title: "เพิ่มประวัติคนไข้",
     path: "/backend/admin-patient-form",
     icon: <ShieldCheck size={20} />,
@@ -108,91 +104,156 @@ const sidebarItems: SidebarItem[] = [
 const Sidebar = () => {
   const pathname = usePathname()
   const router = useRouter()
-  const [collapsed, setCollapsed] = useState<boolean>(false)
+  
+  // User state
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false)
   const [username, setUsername] = useState<string>("")
+  
+  // UI state
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null)
   const [showLogoutDialog, setShowLogoutDialog] = useState<boolean>(false)
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false)
+  
+  // Notification state
+  const [hasNewNotifications, setHasNewNotifications] = useState<boolean>(false)
+  const [newAppointmentsCount, setNewAppointmentsCount] = useState<number>(0)
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState<boolean>(true)
 
-  const toggleSidebar = () => setCollapsed(!collapsed)
-
+  // Toggle submenu function
   const toggleSubmenu = (index: number) => {
-    if (openSubmenu === index) {
-      setOpenSubmenu(null)
-    } else {
-      setOpenSubmenu(index)
+    setOpenSubmenu(openSubmenu === index ? null : index)
+  }
+
+  // Handle notification click
+  const handleNotificationClick = async () => {
+    if (hasNewNotifications) {
+      try {
+        // TODO: Replace with actual API call to mark notifications as read
+        setHasNewNotifications(false)
+        setNewAppointmentsCount(0)
+        router.push("/backend/admin-Panel")
+      } catch (error) {
+        console.error('Error marking notifications as read:', error)
+      }
     }
   }
 
+  // Logout handlers
   const handleLogoutClick = () => {
     setShowLogoutDialog(true)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsLoggingOut(true)
-
-    // จำลองการทำงานของการออกจากระบบ (อาจมีการเรียก API จริงๆ ตรงนี้)
-    setTimeout(() => {
+    try {
+      // TODO: Add API call to logout from server
       localStorage.clear()
-      router.push("/")
-    }, 500)
+      setTimeout(() => {
+        router.push("/")
+      }, 500)
+    } catch (error) {
+      console.error('Logout error:', error)
+      setIsLoggingOut(false)
+    }
   }
 
+  const handleCancelLogout = () => {
+    setShowLogoutDialog(false)
+  }
+
+  // Fetch notifications data
+  const fetchNotifications = async () => {
+    try {
+      setIsLoadingNotifications(true)
+      // TODO: Replace with actual API call
+      const mockData = {
+        hasNew: true,
+        count: 3
+      }
+      setHasNewNotifications(mockData.hasNew)
+      setNewAppointmentsCount(mockData.count)
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+      setHasNewNotifications(false)
+      setNewAppointmentsCount(0)
+    } finally {
+      setIsLoadingNotifications(false)
+    }
+  }
+
+  // Get user initials
+  const getInitials = () => {
+    if (username) {
+      return username
+        .split(' ')
+        .map(name => name.charAt(0))
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    }
+    return isSuperAdmin ? "SA" : "AD"
+  }
+
+  // Initialize user data and permissions
   useEffect(() => {
-    const role = localStorage.getItem("role")
-    const storedUsername = localStorage.getItem("username")
-
-    if (role === "SuperAdmin") {
-      setIsSuperAdmin(true)
+    const initializeUser = () => {
+      const role = localStorage.getItem("role")
+      const storedUsername = localStorage.getItem("username")
+      setIsSuperAdmin(role === "SuperAdmin")
+      if (storedUsername) {
+        setUsername(storedUsername)
+      }
     }
-
-    if (storedUsername) {
-      setUsername(storedUsername)
-    }
+    initializeUser()
+    fetchNotifications()
   }, [])
 
-  // Check if user tries to access admin-manage page when not SuperAdmin
+  // Handle route protection
   useEffect(() => {
-    if (pathname === "/backend/admin-manage" && !isSuperAdmin) {
+    const protectedRoutes = ["/backend/admin-manage", "/backend/admin-patient-form"]
+    const isProtectedRoute = protectedRoutes.some(route => 
+      pathname.startsWith(route)
+    )
+    if (isProtectedRoute && !isSuperAdmin) {
       router.push("/backend/admin-Panel")
     }
   }, [pathname, isSuperAdmin, router])
 
-  // ใช้ตัวอักษรแรกของ username สำหรับ AvatarFallback
-  const getInitials = () => {
-    if (username) {
-      return username.charAt(0).toUpperCase()
+  // Auto-refresh notifications every 30 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchNotifications()
+    }, 30000)
+    return () => clearInterval(intervalId)
+  }, [])
+
+  // Mark notifications as read when visiting appointment page
+  useEffect(() => {
+    if (pathname === "/backend/admin-Panel" && hasNewNotifications) {
+      setTimeout(() => {
+        setHasNewNotifications(false)
+        setNewAppointmentsCount(0)
+      }, 1000)
     }
-    return isSuperAdmin ? "S" : "A"
-  }
+  }, [pathname, hasNewNotifications])
 
   return (
-    <div
-      className={cn(
-        "h-screen bg-white border-r flex flex-col transition-all duration-300 shadow-sm",
-        collapsed ? "w-16" : "w-64",
-      )}
-    >
+    <div className="h-screen bg-white border-r flex flex-col w-64 shadow-sm">
       {/* Header with Logo */}
       <div className="flex items-center justify-between p-4 border-b">
-        {!collapsed ? (
-          <div className="flex items-center">
-            <Image src="/logo.png" alt="Logo" width={120} height={40} className="object-contain" />
-          </div>
-        ) : (
-          <div className="w-full flex justify-center">
-            <Image src="/logo-small.png" alt="Logo" width={28} height={28} className="object-contain" />
-          </div>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full"
-        >
-          {collapsed ? <Menu size={18} /> : <X size={18} />}
-        </Button>
+        <div className="flex items-center">
+          <Image 
+           src="/logo.png" 
+  alt="Logo" 
+  width={190} 
+  height={48} 
+  className="object-contain w-40 sm:w-48 animate-fade-in hover:scale-105 transition-transform duration-200" 
+            priority
+            onError={(e) => {
+              e.currentTarget.src = "/fallback-logo.png"
+            }}
+          />
+        </div>
       </div>
 
       {/* Main Navigation */}
@@ -201,30 +262,36 @@ const Sidebar = () => {
         <div className="p-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <div
-                className={cn(
-                  "flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 cursor-pointer hover:border-blue-200 transition-colors",
-                  collapsed ? "justify-center" : "",
-                )}
-              >
+              <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 cursor-pointer hover:border-blue-200 transition-colors">
                 <Avatar className="h-9 w-9 border-2 border-blue-200">
                   <AvatarImage src="/placeholder-avatar.jpg" alt={username || "แอดมิน"} />
                   <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-medium">
                     {getInitials()}
                   </AvatarFallback>
                 </Avatar>
-                {!collapsed && (
-                  <div className="text-left overflow-hidden flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-blue-900 truncate">{username || "แอดมิน"}</p>
-                      <ChevronDown size={14} className="text-blue-400 ml-1" />
+                <div className="text-left overflow-hidden flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-blue-900 truncate">
+                      {username || "แอดมิน"}
+                    </p>
+                    <div className="flex items-center">
+                      {isLoadingNotifications ? (
+                        <div className="w-3 h-3 border border-blue-300 border-t-transparent rounded-full animate-spin mr-1" />
+                      ) : (
+                        hasNewNotifications && (
+                          <Bell size={14} className="text-amber-500 animate-pulse mr-1" />
+                        )
+                      )}
+                      <ChevronDown size={14} className="text-blue-400" />
                     </div>
-                    <p className="text-xs text-blue-600">{isSuperAdmin ? "SuperAdmin" : "เจ้าหน้าที่"}</p>
                   </div>
-                )}
+                  <p className="text-xs text-blue-600">
+                    {isSuperAdmin ? "SuperAdmin" : "เจ้าหน้าที่"}
+                  </p>
+                </div>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align={collapsed ? "center" : "end"} className="w-56">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>บัญชีของฉัน</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
@@ -233,11 +300,16 @@ const Sidebar = () => {
                 </div>
                 <span>ข้อมูลส่วนตัว</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleNotificationClick}>
                 <div className="w-4 h-4 flex items-center justify-center mr-2">
                   <Bell className="h-4 w-4 text-amber-500" />
                 </div>
                 <span>การแจ้งเตือน</span>
+                {hasNewNotifications && (
+                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {newAppointmentsCount}
+                  </span>
+                )}
               </DropdownMenuItem>
               {isSuperAdmin && (
                 <DropdownMenuItem onClick={() => router.push("/backend/admin-manage")}>
@@ -248,7 +320,10 @@ const Sidebar = () => {
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogoutClick} className="text-red-500 focus:text-red-500 focus:bg-red-50">
+              <DropdownMenuItem 
+                onClick={handleLogoutClick} 
+                className="text-red-500 focus:text-red-500 focus:bg-red-50"
+              >
                 <div className="w-4 h-4 flex items-center justify-center mr-2">
                   <LogOut className="h-4 w-4" />
                 </div>
@@ -260,186 +335,130 @@ const Sidebar = () => {
 
         {/* Navigation Menu */}
         <nav className="mt-2 px-3">
-          <TooltipProvider>
-            <div className="space-y-1">
-              {!collapsed && (
-                <div className="mb-2 px-2">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">เมนูหลัก</p>
-                </div>
-              )}
+          <div className="space-y-1">
+            <div className="mb-2 px-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                เมนูหลัก
+              </p>
+            </div>
 
-              {sidebarItems.map((item, index) => {
-                const isActive = item.path
-                  ? pathname === item.path
-                  : item.submenu?.some((subItem) => pathname === subItem.path)
+            {sidebarItems.map((item, index) => {
+              const isActive = item.path
+                ? pathname === item.path
+                : item.submenu?.some((subItem) => pathname === subItem.path)
 
-                // Skip rendering items that require SuperAdmin if user is not SuperAdmin
-                if (item.requireSuperAdmin && !isSuperAdmin) {
-                  return (
-                    <Tooltip key={`${item.title}-${index}`}>
-                      <TooltipTrigger asChild>
-                        <div
-                          className={cn(
-                            "flex items-center px-2 py-2 rounded-lg cursor-not-allowed opacity-50",
-                            collapsed ? "justify-center" : "justify-start",
-                          )}
-                        >
-                          <div className="w-5 h-5 flex items-center justify-center">{item.icon}</div>
-                          {!collapsed && (
-                            <>
-                              <span className="ml-3 text-sm">{item.title}</span>
-                              <Lock size={14} className="ml-auto text-slate-400" />
-                            </>
-                          )}
+              const isAppointmentItem = item.title === "รายการนัด"
+              const showBadge = isAppointmentItem && newAppointmentsCount > 0
+
+              if (item.requireSuperAdmin && !isSuperAdmin) {
+                return (
+                  <div
+                    key={`${item.title}-${index}`}
+                    className="flex items-center px-2 py-2 rounded-lg cursor-not-allowed opacity-50 justify-start"
+                  >
+                    <div className="w-5 h-5 flex items-center justify-center">{item.icon}</div>
+                    <span className="ml-3 text-sm">{item.title}</span>
+                    <Lock size={14} className="ml-auto text-slate-400" />
+                  </div>
+                )
+              }
+
+              if (item.submenu) {
+                return (
+                  <div key={`${item.title}-${index}`} className="mb-1">
+                    <div>
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "w-full justify-between rounded-lg",
+                          isActive
+                            ? "bg-gradient-to-r from-blue-100 to-indigo-100 text-indigo-700"
+                            : "text-slate-700 hover:bg-slate-100",
+                        )}
+                        onClick={() => toggleSubmenu(index)}
+                      >
+                        <div className="flex items-center">
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            <div className={isActive ? "text-indigo-600" : "text-slate-600"}>
+                              {item.icon}
+                            </div>
+                          </div>
+                          <span className="ml-3 text-sm">{item.title}</span>
                         </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="bg-slate-800 text-white border-slate-700">
-                        {collapsed ? `${item.title} - สำหรับ SuperAdmin เท่านั้น` : "สำหรับ SuperAdmin เท่านั้น"}
-                      </TooltipContent>
-                    </Tooltip>
-                  )
-                }
+                        {openSubmenu === index ? (
+                          <ChevronDown size={16} className="text-slate-400" />
+                        ) : (
+                          <ChevronRight size={16} className="text-slate-400" />
+                        )}
+                      </Button>
 
-                if (item.submenu) {
-                  return (
-                    <div key={`${item.title}-${index}`} className="mb-1">
-                      {collapsed ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                "w-full justify-center rounded-lg",
-                                isActive
-                                  ? "bg-gradient-to-r from-blue-100 to-indigo-100 text-indigo-700"
-                                  : "text-slate-700 hover:bg-slate-100",
-                              )}
-                              onClick={() => toggleSubmenu(index)}
-                            >
-                              <div className="w-5 h-5 flex items-center justify-center">
-                                <div className={isActive ? "text-indigo-600" : "text-slate-600"}>{item.icon}</div>
-                              </div>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="bg-slate-800 text-white border-slate-700">
-                            {item.title}
-                          </TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <div>
-                          <Button
-                            variant="ghost"
-                            className={cn(
-                              "w-full justify-between rounded-lg",
-                              isActive
-                                ? "bg-gradient-to-r from-blue-100 to-indigo-100 text-indigo-700"
-                                : "text-slate-700 hover:bg-slate-100",
-                            )}
-                            onClick={() => toggleSubmenu(index)}
-                          >
-                            <div className="flex items-center">
-                              <div className="w-5 h-5 flex items-center justify-center">
-                                <div className={isActive ? "text-indigo-600" : "text-slate-600"}>{item.icon}</div>
-                              </div>
-                              <span className="ml-3 text-sm">{item.title}</span>
-                            </div>
-                            {openSubmenu === index ? (
-                              <ChevronDown size={16} className="text-slate-400" />
-                            ) : (
-                              <ChevronRight size={16} className="text-slate-400" />
-                            )}
-                          </Button>
-
-                          {openSubmenu === index && (
-                            <div className="mt-1 ml-2 pl-6 border-l-2 border-indigo-100 space-y-1">
-                              {item.submenu.map((subItem, subIndex) => {
-                                const isSubItemActive = pathname === subItem.path
-                                return (
-                                  <Link
-                                    key={`${subItem.path}-${subIndex}`}
-                                    href={subItem.path}
-                                    className={cn(
-                                      "flex items-center px-3 py-2 text-sm rounded-lg",
-                                      isSubItemActive
-                                        ? "bg-indigo-100 text-indigo-700"
-                                        : "text-slate-600 hover:bg-slate-100",
-                                    )}
-                                  >
-                                    <div className="w-4 h-4 flex items-center justify-center">
-                                      {subItem.icon ? (
-                                        <div className={isSubItemActive ? "text-indigo-600" : "text-slate-500"}>
-                                          {subItem.icon}
-                                        </div>
-                                      ) : (
-                                        <div className="w-2 h-2 rounded-full bg-indigo-300" />
-                                      )}
+                      {openSubmenu === index && (
+                        <div className="mt-1 ml-2 pl-6 border-l-2 border-indigo-100 space-y-1">
+                          {item.submenu.map((subItem, subIndex) => {
+                            const isSubItemActive = pathname === subItem.path
+                            return (
+                              <Link
+                                key={`${subItem.path}-${subIndex}`}
+                                href={subItem.path}
+                                className={cn(
+                                  "flex items-center px-3 py-2 text-sm rounded-lg",
+                                  isSubItemActive
+                                    ? "bg-indigo-100 text-indigo-700"
+                                    : "text-slate-600 hover:bg-slate-100",
+                                )}
+                              >
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  {subItem.icon ? (
+                                    <div className={isSubItemActive ? "text-indigo-600" : "text-slate-500"}>
+                                      {subItem.icon}
                                     </div>
-                                    <span className="ml-2">{subItem.title}</span>
-                                  </Link>
-                                )
-                              })}
-                            </div>
-                          )}
+                                  ) : (
+                                    <div className="w-2 h-2 rounded-full bg-indigo-300" />
+                                  )}
+                                </div>
+                                <span className="ml-2">{subItem.title}</span>
+                              </Link>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
-                  )
-                }
-
-                return (
-                  <div key={`${item.path}-${index}`} className="mb-1">
-                    {collapsed ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link href={item.path || "#"}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                "w-full justify-center rounded-lg",
-                                isActive
-                                  ? "bg-gradient-to-r from-blue-100 to-indigo-100 text-indigo-700"
-                                  : "text-slate-700 hover:bg-slate-100",
-                              )}
-                            >
-                              <div className="w-5 h-5 flex items-center justify-center">
-                                <div className={isActive ? "text-indigo-600" : "text-slate-600"}>{item.icon}</div>
-                              </div>
-                            </Button>
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="bg-slate-800 text-white border-slate-700">
-                          {item.title}
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <Link href={item.path || "#"}>
-                        <Button
-                          variant="ghost"
-                          className={cn(
-                            "w-full justify-start rounded-lg",
-                            isActive
-                              ? "bg-gradient-to-r from-blue-100 to-indigo-100 text-indigo-700"
-                              : "text-slate-700 hover:bg-slate-100",
-                          )}
-                        >
-                          <div className="w-5 h-5 flex items-center justify-center">
-                            <div className={isActive ? "text-indigo-600" : "text-slate-600"}>{item.icon}</div>
-                          </div>
-                          <span className="ml-3 text-sm">{item.title}</span>
-                        </Button>
-                      </Link>
-                    )}
                   </div>
                 )
-              })}
-            </div>
-          </TooltipProvider>
+              }
+
+              return (
+                <div key={`${item.path}-${index}`} className="mb-1">
+                  <Link href={item.path || "#"}>
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        "w-full justify-start rounded-lg relative",
+                        isActive
+                          ? "bg-gradient-to-r from-blue-100 to-indigo-100 text-indigo-700"
+                          : "text-slate-700 hover:bg-slate-100",
+                        isAppointmentItem && newAppointmentsCount > 0 ? "animate-pulse" : "",
+                      )}
+                    >
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        <div className={isActive ? "text-indigo-600" : "text-slate-600"}>
+                          {item.icon}
+                        </div>
+                      </div>
+                      <span className="ml-3 text-sm">{item.title}</span>
+                      {showBadge && (
+                        <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                          {newAppointmentsCount} ใหม่
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
         </nav>
       </div>
-
-      
 
       {/* Logout Confirmation Dialog */}
       <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
@@ -457,7 +476,7 @@ const Sidebar = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setShowLogoutDialog(false)}
+              onClick={handleCancelLogout}
               className="bg-white"
               disabled={isLoggingOut}
             >

@@ -32,7 +32,7 @@ export default function LoginPage() {
   const [liffError, setLiffError] = useState<string | null>(null)
 
   // LIFF ID จาก LINE Developers Console
-  const LIFF_ID = "2006488509-5E2r8wWG"
+  const LIFF_ID = "2007308199-K3qboOWl"
 
   // ฟังก์ชันสำหรับเริ่มต้น LIFF
   const initializeLiff = async () => {

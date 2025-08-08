@@ -163,18 +163,19 @@ const Page = () => {
           // ส่งข้อมูลไปยัง LINE API
           try {
             await fetch("/api/line-notification", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                userId: lineUserId,
-                appointmentDetails: {
-                  referenceNumber: result.bookingReferenceNumber,
-                  department: departmentName,
-                  date: format(selectedDate!, "dd MMMM yyyy", { locale: th }),
-                  time: timeRange,
-                },
-              }),
-            })
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    userId: lineUserId,
+    appointmentDetails: {
+      referenceNumber: result.bookingReferenceNumber,
+      department: departmentName,
+      date: format(selectedDate!, "dd MMMM yyyy", { locale: th }),
+      time: timeRange,
+    },
+  }),
+})
+
             console.log("LINE notification sent successfully")
           } catch (err) {
             console.error("Failed to send LINE notification:", err)
