@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       WHERE s.slot_date BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
       GROUP BY s.slot_date
       ORDER BY s.slot_date
-    `)
+`)
 
     // 4. รายงานจำนวนการจองตามเดือน
     const [bookingsByMonth] = await connection.query<mysql.RowDataPacket[]>(`

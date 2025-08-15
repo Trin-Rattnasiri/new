@@ -295,40 +295,7 @@ export async function POST(request: Request) {
         }
       };
 
-      // เพิ่มหมายเหตุถ้ามี
-      if (messageData.adminNote) {
-        flexMessage.contents.body.contents.push(
-          {
-            type: 'separator',
-            margin: 'lg'
-          },
-          {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              {
-                type: 'text',
-                text: '📝 หมายเหตุจากเจ้าหน้าที่',
-                weight: 'bold',
-                size: 'sm',
-                color: '#6366f1'
-              },
-              {
-                type: 'text',
-                text: messageData.adminNote,
-                size: 'sm',
-                color: '#475569',
-                wrap: true,
-                margin: 'sm'
-              }
-            ],
-            backgroundColor: '#eff6ff',
-            paddingAll: '15px',
-            cornerRadius: '8px',
-            margin: 'lg'
-          }
-        );
-      }
+      
 
     } else {
       // ข้อความสำหรับการจองปกติ (เหมือนเดิม)

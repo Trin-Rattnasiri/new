@@ -1,3 +1,4 @@
+// app/api/user/profile/route.ts
 import { NextResponse } from "next/server"
 import mysql from "mysql2/promise"
 
@@ -6,6 +7,7 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  timezone: '+07:00'
 })
 
 export async function GET(req: Request) {
@@ -18,10 +20,12 @@ export async function GET(req: Request) {
 
   const connection = await pool.getConnection()
   try {
-    // ไม่ดึง prefix ออกจากผลลัพธ์
+    // ดึงข้อมูลรวมถึง LINE integration
     const [rows] = await connection.query(
-      `SELECT prefix, citizenId, name, phone, birthday, hn FROM user
- WHERE citizenId = ?`,
+      `SELECT prefix, citizenId, name, phone, birthday, hn,
+              line_id, line_display_name, line_picture_url,
+              createdAt, updatedAt
+       FROM user WHERE citizenId = ?`,
       [citizenId]
     )
 
@@ -29,7 +33,20 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "ไม่พบผู้ใช้งาน" }, { status: 404 })
     }
 
-    return NextResponse.json((rows as any[])[0])
+    const userData = (rows as any[])[0]
+
+    // จัดรูปแบบข้อมูลเพื่อให้ตรงกับ interface ใน Dashboard
+    const responseData = {
+      ...userData,
+      // เพิ่มข้อมูลสำหรับ LINE integration
+      isLinkedWithLine: !!userData.line_id,
+      lineUserId: userData.line_id,
+      lineDisplayName: userData.line_display_name,
+      linePictureUrl: userData.line_picture_url
+    }
+
+    return NextResponse.json(responseData)
+    
   } catch (err) {
     console.error("❌ Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

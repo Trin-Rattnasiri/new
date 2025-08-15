@@ -165,13 +165,14 @@ const Sidebar = () => {
   const fetchNotifications = async () => {
     try {
       setIsLoadingNotifications(true)
-      // TODO: Replace with actual API call
-      const mockData = {
-        hasNew: true,
-        count: 3
-      }
-      setHasNewNotifications(mockData.hasNew)
-      setNewAppointmentsCount(mockData.count)
+      const res = await fetch("/api/admin/notifications")
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Failed to fetch notifications: ${text}`)
+    }
+    const data = await res.json()
+      setHasNewNotifications(data.hasNew)
+      setNewAppointmentsCount(data.count)
     } catch (error) {
       console.error('Error fetching notifications:', error)
       setHasNewNotifications(false)
