@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
@@ -10,6 +8,9 @@ import Link from "next/link"
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+
+// (ตัวแปรนี้ยังไม่ถูกใช้งาน ถ้าจะเก็บ version ไว้แสดงผลค่อยใช้ทีหลังได้)
+const PDPA_POLICY_VERSION = "v1.0-2025-08-23"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -21,35 +22,57 @@ export default function LoginPage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [loginData, setLoginData] = useState<any>(null)
 
+  // ✅ สถานะ PDPA
+  const [pdpaAccepted, setPdpaAccepted] = useState(false)
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
+  const [showPdpaDialog, setShowPdpaDialog] = useState(false)
+
   const handleCitizenIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "").slice(0, 13)
     setCitizenId(value)
   }
 
   const handleLogin = async () => {
-    // Reset error state
     setError(null)
 
+    if (!pdpaAccepted) {
+      setError("กรุณายอมรับนโยบายความเป็นส่วนตัว (PDPA) ก่อนเข้าสู่ระบบ")
+      return
+    }
     if (password.length < 6) {
       setError("กรุณากรอกรหัสผ่านอย่างน้อย 6 ตัว")
       return
     }
-
     if (!citizenId || citizenId.trim().length < 3) {
-      setError("กรุณากรอกชื่อผู้ใช้หรือเลขบัตรประชาชนให้ถูกต้อง")
+      setError("กรุณากรอกเลขประจำตัวประชาชนให้ถูกต้อง")
       return
     }
 
     setLoading(true)
     try {
+      // 1) บันทึก consent ก่อนเข้าสู่ระบบ (ฝั่งเซิร์ฟเวอร์ HMAC ให้อยู่แล้ว)
+      try {
+        await fetch("/api/consent/log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            citizenId,
+            acceptedAt: new Date().toISOString(),
+            marketingOptIn,
+          }),
+        })
+      } catch {
+        // ไม่บล็อกการล็อกอินถ้า log consent ล้มเหลว
+        console.warn("consent log failed")
+      }
+
+      // 2) เรียก login — เซิร์ฟเวอร์จะตั้ง HttpOnly cookie ให้
       const res = await fetch("/api/user/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ citizenId, password }),
       })
-
       const data = await res.json()
-      console.log("✅ login result:", data)
 
       if (!res.ok) {
         setError(data.error || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ")
@@ -57,35 +80,20 @@ export default function LoginPage() {
         return
       }
 
-      // ✅ เก็บข้อมูลใน localStorage
-      localStorage.setItem("user", JSON.stringify(data))
-      localStorage.setItem("role", data.role)
-
-      if (data.role === "user") {
-        localStorage.setItem("citizenId", data.citizenId)
-        localStorage.setItem("hn", data.hn)
-        localStorage.setItem("userName", data.name)
-      } else {
-        localStorage.setItem("username", data.username)
-      }
-
-      // แสดงข้อความสำเร็จสั้นๆ
+      // 3) ไม่ต้องใช้ localStorage — ใช้คุกกี้ session แทน
       setLoginData(data)
       setShowSuccessDialog(true)
 
-      // ตั้งเวลาให้ redirect อัตโนมัติหลังจาก 1.5 วินาที
       setTimeout(() => {
         if (data.role === "SuperAdmin" || data.role === "เจ้าหน้าที่") {
           router.push("/backend/dashboard")
         } else {
           router.push("/front/user-dashboard")
         }
-      }, 1500)
-    } catch (error) {
-      console.error("เกิดข้อผิดพลาดในการเข้าสู่ระบบ:", error)
+      }, 1000)
+    } catch {
       setError("เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง")
     }
-
     setLoading(false)
   }
 
@@ -113,8 +121,10 @@ export default function LoginPage() {
             value={citizenId}
             onChange={handleCitizenIdChange}
             placeholder="กรอกเลข 13 หลัก"
+            inputMode="numeric"
             maxLength={13}
             className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+            autoComplete="username"
           />
         </div>
 
@@ -130,19 +140,55 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="กรอกรหัสผ่าน"
               className="w-full p-3 pr-12 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleLogin()
-                }
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleLogin() }}
+              autoComplete="current-password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute top-1/2 right-3 transform -translate-y-1/2 text-xl text-gray-500 hover:text-blue-600"
+              className="absolute top-1/2 right-3 -translate-y-1/2 text-xl text-gray-500 hover:text-blue-600"
+              aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
             >
               {showPassword ? <FiEyeOff /> : <FiEye />}
             </button>
+          </div>
+        </div>
+
+        {/* ✅ PDPA Consent Block */}
+        <div className="space-y-3 rounded-lg border border-gray-200 p-3 bg-gray-50">
+          <div className="flex items-start gap-3">
+            <input
+              id="pdpaAccept"
+              type="checkbox"
+              checked={pdpaAccepted}
+              onChange={(e) => setPdpaAccepted(e.target.checked)}
+              className="mt-1 h-4 w-4"
+            />
+            <label htmlFor="pdpaAccept" className="text-sm text-gray-700">
+              ข้าพเจ้ายินยอมให้ "โรงพยาบาลแม่จัน" เก็บ ใช้ และเปิดเผยข้อมูลส่วนบุคคลของข้าพเจ้าเพื่อการให้บริการ
+              และได้อ่าน{" "}
+              <button
+                type="button"
+                onClick={() => setShowPdpaDialog(true)}
+                className="text-blue-700 underline underline-offset-2"
+              >
+                นโยบายความเป็นส่วนตัว (PDPA)
+              </button>{" "}
+              แล้ว
+            </label>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <input
+              id="marketing"
+              type="checkbox"
+              checked={marketingOptIn}
+              onChange={(e) => setMarketingOptIn(e.target.checked)}
+              className="mt-1 h-4 w-4"
+            />
+            <label htmlFor="marketing" className="text-sm text-gray-700">
+              ยินยอมรับข่าวสาร/ประชาสัมพันธ์จากโรงพยาบาลแม่จัน (ไม่บังคับ)
+            </label>
           </div>
         </div>
 
@@ -183,14 +229,32 @@ export default function LoginPage() {
             <DialogTitle className="text-xl text-green-700 mb-2">เข้าสู่ระบบสำเร็จ</DialogTitle>
             <DialogDescription className="text-slate-600">
               {loginData?.role === "SuperAdmin" || loginData?.role === "เจ้าหน้าที่" ? (
-                <>
-                  คุณกำลังเข้าสู่ระบบในฐานะ <span className="font-semibold text-blue-600">{loginData?.role}</span>
-                  <br />
-                </>
+                <>คุณกำลังเข้าสู่ระบบในฐานะ <span className="font-semibold text-blue-600">{loginData?.role}</span></>
               ) : null}
-              กำลังนำคุณไปยังหน้าหลัก...
+              <br />กำลังนำคุณไปยังหน้าหลัก...
             </DialogDescription>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDPA Dialog (ฉบับย่อ) */}
+      <Dialog open={showPdpaDialog} onOpenChange={setShowPdpaDialog}>
+        <DialogContent className="sm:max-w-lg p-6">
+          <DialogTitle>นโยบายความเป็นส่วนตัว (PDPA) — ฉบับย่อ</DialogTitle>
+          <DialogDescription asChild>
+            <div className="text-sm text-slate-700 space-y-3 mt-2">
+              <p>
+                ผู้ควบคุมข้อมูล: โรงพยาบาลแม่จัน • วัตถุประสงค์: การระบุตัวตน, ให้บริการ/นัดหมาย/บัตรคิว, ความปลอดภัยระบบ,
+                ติดต่อสื่อสารด้านบริการ
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>ประเภทข้อมูล: ข้อมูลระบุตัวตนและการใช้งานบริการตามความจำเป็น</li>
+                <li>การเปิดเผย: เฉพาะหน่วยงานที่เกี่ยวข้องกับการให้บริการและผู้ประมวลผลข้อมูลตามสัญญา</li>
+                <li>ระยะเวลาจัดเก็บ: ตามความจำเป็นของวัตถุประสงค์หรือจนกว่าจะถอนความยินยอม</li>
+                <li>สิทธิของท่าน: ขอเข้าถึง/แก้ไข/ลบ/คัดค้าน/เพิกถอนความยินยอม โดยติดต่อช่องทางของโรงพยาบาล</li>
+              </ul>
+            </div>
+          </DialogDescription>
         </DialogContent>
       </Dialog>
     </div>

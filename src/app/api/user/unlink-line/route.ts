@@ -1,128 +1,103 @@
-// app/api/user/unlink-line/route.ts
-import { NextResponse } from "next/server"
+// src/app/api/user/unlink-line/route.ts
+import { NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import mysql from "mysql2/promise"
+import { verifySession } from "@/lib/auth"
 
-// ฟังก์ชันเชื่อมต่อฐานข้อมูล
-const getConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    timezone: '+07:00'
-  })
-}
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
-interface UnlinkLineRequest {
-  citizenId: string
-}
+const pool = mysql.createPool({
+  host: process.env.DB_HOST!,
+  user: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+  database: process.env.DB_NAME!,
+  waitForConnections: true,
+  connectionLimit: 10,
+  timezone: "+07:00",
+})
 
-export async function POST(request: Request) {
-  let connection: mysql.Connection | null = null
-  
+export async function POST(_req: NextRequest) {
+  // 1) auth
+  const cookieStore = await cookies()
+  const raw = cookieStore.get("session")?.value
+  if (!raw) return NextResponse.json({ error: "unauthorized" }, { status: 401 })
+
+  let sess: { sub: string; kind: "user" | "admin" }
   try {
-    const requestData: UnlinkLineRequest = await request.json()
-    
-    // Validate input
-    if (!requestData.citizenId) {
-      return NextResponse.json(
-        { error: "กรุณาระบุเลขบัตรประชาชน" }, 
-        { status: 400 }
-      )
-    }
+    sess = verifySession(raw)
+  } catch {
+    return NextResponse.json({ error: "invalid session" }, { status: 401 })
+  }
+  if (sess.kind !== "user") {
+    return NextResponse.json({ error: "only user can unlink LINE" }, { status: 403 })
+  }
 
-    const { citizenId } = requestData
+  const citizenId = String(sess.sub)
+  const conn = await pool.getConnection()
+  try {
+    await conn.beginTransaction()
 
-    connection = await getConnection()
-    await connection.beginTransaction()
-
-    try {
-      // ตรวจสอบว่า user มีอยู่จริงหรือไม่
-      const [users] = await connection.execute(
-        "SELECT * FROM user WHERE citizenId = ?", 
-        [citizenId]
-      )
-      const userArray = users as any[]
-      
-      if (userArray.length === 0) {
-        await connection.rollback()
-        return NextResponse.json(
-          { error: "ไม่พบผู้ใช้ที่มีเลขบัตรประชาชนนี้" }, 
-          { status: 404 }
-        )
-      }
-
-      const user = userArray[0]
-
-      // ตรวจสอบว่าผู้ใช้มีการเชื่อมต่อ LINE อยู่หรือไม่
-      if (!user.line_id) {
-        return NextResponse.json(
-          { error: "ผู้ใช้นี้ยังไม่ได้เชื่อมต่อกับบัญชี LINE" }, 
-          { status: 400 }
-        )
-      }
-
-      // ลบข้อมูล LINE ออกจาก user
-      await connection.execute(
-        `UPDATE user SET 
-           line_id = NULL, 
-           line_display_name = NULL, 
-           line_picture_url = NULL, 
-           updatedAt = NOW() 
-         WHERE citizenId = ?`,
-        [citizenId]
-      )
-
-      // ดึงข้อมูล user ที่อัพเดทแล้ว
-      const [updatedUsers] = await connection.execute(
-        `SELECT id, prefix, citizenId, name, phone, birthday, hn, 
-                line_id, line_display_name, line_picture_url,
-                createdAt, updatedAt
-         FROM user WHERE citizenId = ?`, 
-        [citizenId]
-      )
-      
-      const updatedUserArray = updatedUsers as any[]
-      const updatedUser = updatedUserArray[0]
-
-      await connection.commit()
-
-      // ส่งข้อมูลผู้ใช้ที่อัพเดทแล้วกลับไป
-      return NextResponse.json({
-        success: true,
-        message: "ยกเลิกการเชื่อมต่อบัญชี LINE สำเร็จ",
-        user: {
-          ...updatedUser,
-          isLinkedWithLine: false,
-          lineUserId: null,
-          lineDisplayName: null,
-          linePictureUrl: null
-        }
-      })
-
-    } catch (transactionError) {
-      await connection.rollback()
-      throw transactionError
-    }
-
-  } catch (error: any) {
-    console.error("Unlink LINE Account Error:", error)
-
-    return NextResponse.json(
-      { 
-        success: false,
-        error: "เกิดข้อผิดพลาดในการยกเลิกการเชื่อมต่อบัญชี LINE" 
-      }, 
-      { status: 500 }
+    // 2) ล็อกแถวผู้ใช้ — ใช้ citizenid (ตัวพิมพ์เล็ก)
+    const [rows] = await conn.execute<any[]>(
+      `SELECT id, prefix, name, hn, citizenid,
+              line_id, line_display_name, line_picture_url
+       FROM \`user\`
+       WHERE citizenid = ?
+       FOR UPDATE`,
+      [citizenId]
     )
-    
-  } finally {
-    if (connection) {
-      try {
-        await connection.end()
-      } catch (closeError) {
-        console.error("Error closing database connection:", closeError)
-      }
+    if (!Array.isArray(rows) || rows.length === 0) {
+      await conn.rollback()
+      return NextResponse.json({ error: "ไม่พบผู้ใช้" }, { status: 404 })
     }
+
+    // 3) เคลียร์ค่า LINE (idempotent)
+    if (rows[0].line_id !== null) {
+      await conn.execute(
+        `UPDATE \`user\`
+         SET line_id = NULL,
+             line_display_name = NULL,
+             line_picture_url = NULL,
+             updatedAt = NOW()
+         -- ถ้า schema ใช้ snake_case: updated_at = NOW()
+         WHERE citizenid = ?`,
+        [citizenId]
+      )
+    }
+
+    // 4) อ่านค่าล่าสุด
+    const [after] = await conn.execute<any[]>(
+      `SELECT prefix, name, hn, citizenid,
+              line_id, line_display_name, line_picture_url
+       FROM \`user\`
+       WHERE citizenid = ?
+       LIMIT 1`,
+      [citizenId]
+    )
+
+    await conn.commit()
+
+    const u = after?.[0] ?? {}
+    return NextResponse.json({
+      success: true,
+      message: "ยกเลิกการเชื่อมต่อบัญชี LINE สำเร็จ",
+      user: {
+        prefix: u.prefix ?? "",
+        name: u.name ?? "",
+        citizenId: u.citizenid ?? citizenId, // map -> camelCase
+        hn: u.hn ?? "",
+        isLinkedWithLine: !!u.line_id,
+        lineUserId: u.line_id ?? null,
+        lineDisplayName: u.line_display_name ?? null,
+        linePictureUrl: u.line_picture_url ?? null,
+      },
+    })
+  } catch (e) {
+    try { await conn.rollback() } catch {}
+    console.error("unlink-line error:", e)
+    return NextResponse.json({ error: "server error" }, { status: 500 })
+  } finally {
+    conn.release()
   }
 }

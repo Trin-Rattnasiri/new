@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { FiEye, FiEyeOff } from "react-icons/fi"
+import { FiEye, FiEyeOff, FiCheck, FiX } from "react-icons/fi"
 
 const SignUpPage = () => {
   const router = useRouter()
@@ -16,6 +16,74 @@ const SignUpPage = () => {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false,
+    noPersonalInfo: true,
+    score: 0
+  })
+
+  // ตรวจสอบความแข็งแกร่งของรหัสผ่าน
+  const checkPasswordStrength = (pwd) => {
+    const checks = {
+      length: pwd.length >= 12,
+      uppercase: /[A-Z]/.test(pwd),
+      lowercase: /[a-z]/.test(pwd),
+      number: /[0-9]/.test(pwd),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd),
+      noCommonPatterns: !containsCommonPatterns(pwd)
+    }
+
+    const score = Object.values(checks).filter(Boolean).length
+    return { ...checks, score }
+  }
+
+  // ตรวจสอบรูปแบบที่ไม่ปลอดภัย
+  const containsCommonPatterns = (pwd) => {
+    const commonPatterns = [
+      /123456/,
+      /password/i,
+      /qwerty/i,
+      /abcdef/i,
+      /111111/,
+      /000000/,
+      /654321/,
+      /abc123/i,
+      /admin/i,
+      /user/i,
+      /login/i
+    ]
+    
+    return commonPatterns.some(pattern => pattern.test(pwd))
+  }
+
+  // อัพเดทความแข็งแกร่งของรหัสผ่านแบบเรียลไทม์
+  useEffect(() => {
+    if (password) {
+      setPasswordStrength(checkPasswordStrength(password))
+    } else {
+      setPasswordStrength({
+        length: false,
+        uppercase: false,
+        lowercase: false,
+        number: false,
+        special: false,
+        noCommonPatterns: true,
+        score: 0
+      })
+    }
+  }, [password, name, phoneNumber, citizenId, birthday])
+
+  // คำนวณระดับความแข็งแกร่ง
+  const getStrengthLevel = (score) => {
+    if (score <= 2) return { level: "อ่อนแอ", color: "text-red-600", bg: "bg-red-100" }
+    if (score <= 4) return { level: "ปานกลาง", color: "text-yellow-600", bg: "bg-yellow-100" }
+    if (score <= 5) return { level: "ดี", color: "text-blue-600", bg: "bg-blue-100" }
+    return { level: "แข็งแกร่ง", color: "text-green-600", bg: "bg-green-100" }
+  }
 
   const handleCitizenIdChange = (e) => {
     setCitizenId(e.target.value.replace(/\D/g, "").slice(0, 13))
@@ -26,16 +94,26 @@ const SignUpPage = () => {
   }
 
   const handleSignUp = async () => {
+    // ตรวจสอบข้อมูลพื้นฐาน
     if (
       !prefix ||
       name.trim() === "" ||
       birthday === "" ||
       citizenId.length < 13 ||
-      phoneNumber.length < 10 ||
-      password.length < 6 ||
-      password !== confirmPassword
+      phoneNumber.length < 10
     ) {
       alert("⚠ กรุณากรอกข้อมูลให้ถูกต้องครบถ้วน")
+      return
+    }
+
+    // ตรวจสอบความแข็งแกร่งของรหัสผ่าน
+    if (passwordStrength.score < 4) {
+      alert("⚠ รหัสผ่านของคุณไม่ปลอดภัยเพียงพอ กรุณาปรับปรุงตามเงื่อนไขที่แสดง")
+      return
+    }
+
+    if (password !== confirmPassword) {
+      alert("⚠ รหัสผ่านไม่ตรงกัน")
       return
     }
 
@@ -68,6 +146,8 @@ const SignUpPage = () => {
     }
     setLoading(false)
   }
+
+  const strengthInfo = getStrengthLevel(passwordStrength.score)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
@@ -126,8 +206,23 @@ const SignUpPage = () => {
             type="text"
             value={citizenId}
             onChange={handleCitizenIdChange}
-            className="w-full p-3 text-lg bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+            placeholder="1234567890123"
+            className={`w-full p-3 text-lg bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 ${
+              citizenId && citizenId.length < 13 
+                ? 'border-red-300 focus:ring-red-500' 
+                : 'border-gray-300'
+            }`}
           />
+          {citizenId && citizenId.length > 0 && citizenId.length < 13 && (
+            <p className="text-red-600 text-sm mt-1 flex items-center">
+              <FiX className="mr-1" /> กรุณากรอกเลขบัตรประชาชนให้ครบ 13 หลัก (ปัจจุบัน: {citizenId.length} หลัก)
+            </p>
+          )}
+          {citizenId && citizenId.length === 13 && (
+            <p className="text-green-600 text-sm mt-1 flex items-center">
+              <FiCheck className="mr-1" /> เลขบัตรประชาชนถูกต้อง
+            </p>
+          )}
         </div>
 
         <div className="mb-5">
@@ -136,8 +231,23 @@ const SignUpPage = () => {
             type="text"
             value={phoneNumber}
             onChange={handlePhoneChange}
-            className="w-full p-3 text-lg bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+            placeholder="0812345678"
+            className={`w-full p-3 text-lg bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 ${
+              phoneNumber && phoneNumber.length < 10 
+                ? 'border-red-300 focus:ring-red-500' 
+                : 'border-gray-300'
+            }`}
           />
+          {phoneNumber && phoneNumber.length > 0 && phoneNumber.length < 10 && (
+            <p className="text-red-600 text-sm mt-1 flex items-center">
+              <FiX className="mr-1" /> กรุณากรอกเบอร์โทรให้ครบ 10 หลัก (ปัจจุบัน: {phoneNumber.length} หลัก)
+            </p>
+          )}
+          {phoneNumber && phoneNumber.length === 10 && (
+            <p className="text-green-600 text-sm mt-1 flex items-center">
+              <FiCheck className="mr-1" /> เบอร์โทรศัพท์ถูกต้อง
+            </p>
+          )}
         </div>
 
         <div className="mb-5">
@@ -157,6 +267,43 @@ const SignUpPage = () => {
               {showPassword ? <FiEyeOff /> : <FiEye />}
             </button>
           </div>
+          
+          {/* แสดงระดับความแข็งแกร่ง */}
+          {password && (
+            <div className="mt-3">
+              <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${strengthInfo.bg} ${strengthInfo.color}`}>
+                ความแข็งแกร่ง: {strengthInfo.level} ({passwordStrength.score}/6)
+              </div>
+              
+              {/* แสดงเงื่อนไขความปลอดภัย */}
+              <div className="mt-3 space-y-1">
+                <div className={`flex items-center text-sm ${passwordStrength.length ? 'text-green-600' : 'text-red-600'}`}>
+                  {passwordStrength.length ? <FiCheck className="mr-2" /> : <FiX className="mr-2" />}
+                  อย่างน้อย 12 ตัวอักษร
+                </div>
+                <div className={`flex items-center text-sm ${passwordStrength.uppercase ? 'text-green-600' : 'text-red-600'}`}>
+                  {passwordStrength.uppercase ? <FiCheck className="mr-2" /> : <FiX className="mr-2" />}
+                  มีตัวอักษรพิมพ์ใหญ่ (A-Z)
+                </div>
+                <div className={`flex items-center text-sm ${passwordStrength.lowercase ? 'text-green-600' : 'text-red-600'}`}>
+                  {passwordStrength.lowercase ? <FiCheck className="mr-2" /> : <FiX className="mr-2" />}
+                  มีตัวอักษรพิมพ์เล็ก (a-z)
+                </div>
+                <div className={`flex items-center text-sm ${passwordStrength.number ? 'text-green-600' : 'text-red-600'}`}>
+                  {passwordStrength.number ? <FiCheck className="mr-2" /> : <FiX className="mr-2" />}
+                  มีตัวเลข (0-9)
+                </div>
+                <div className={`flex items-center text-sm ${passwordStrength.special ? 'text-green-600' : 'text-red-600'}`}>
+                  {passwordStrength.special ? <FiCheck className="mr-2" /> : <FiX className="mr-2" />}
+                  มีสัญลักษณ์พิเศษ (!@#$%^&*)
+                </div>
+                <div className={`flex items-center text-sm ${passwordStrength.noCommonPatterns ? 'text-green-600' : 'text-red-600'}`}>
+                  {passwordStrength.noCommonPatterns ? <FiCheck className="mr-2" /> : <FiX className="mr-2" />}
+                  ไม่ใช้รูปแบบที่เสี่ยง
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mb-8">
@@ -167,12 +314,22 @@ const SignUpPage = () => {
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full p-3 text-lg bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
           />
+          {confirmPassword && password !== confirmPassword && (
+            <p className="text-red-600 text-sm mt-1 flex items-center">
+              <FiX className="mr-1" /> รหัสผ่านไม่ตรงกัน
+            </p>
+          )}
+          {confirmPassword && password === confirmPassword && password && (
+            <p className="text-green-600 text-sm mt-1 flex items-center">
+              <FiCheck className="mr-1" /> รหัสผ่านตรงกัน
+            </p>
+          )}
         </div>
 
         <button
           onClick={handleSignUp}
-          disabled={loading}
-          className="w-full py-3 bg-green-600 text-white text-lg font-semibold rounded-xl shadow-md hover:scale-105 transition-all duration-300 disabled:opacity-50"
+          disabled={loading || passwordStrength.score < 4}
+          className="w-full py-3 bg-green-600 text-white text-lg font-semibold rounded-xl shadow-md hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100"
         >
           {loading ? "⏳ กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
         </button>

@@ -1,66 +1,65 @@
-import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+// middleware.ts (วางที่รากโปรเจกต์)
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { jwtVerify } from "jose"
 
-// กำหนดเส้นทางที่ต้องการให้มีการตรวจสอบ authentication
-const protectedRoutes = ['/dashboard'];
-// กำหนดเส้นทางที่ต้องการให้ redirect ไปหน้า dashboard ถ้ามีการ login แล้ว
-const authRoutes = ['/login', '/register'];
+const PUBLIC_PATHS = new Set<string>([
+  "/",                       // ✅ หน้าแรก = หน้า Login
+  "/front/user-signup",      // ถ้ามีหน้า signup
+])
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+const PUBLIC_API_PREFIXES = [
+  "/api/user/login",
+  "/api/consent/log",
+  "/api/line-webhook",
+  "/api/auth/line/callback",
+]
 
-  // ตรวจสอบ token จาก cookie
-  const token = request.cookies.get('token')?.value;
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
-  // ถ้าเป็นเส้นทางที่ต้องการ authentication
-  if (protectedRoutes.some(route => pathname.startsWith(route))) {
-    if (!token) {
-      // ถ้าไม่มี token ให้ redirect ไปหน้า login
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
 
-    try {
-      // ตรวจสอบความถูกต้องของ token
-      jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
-      return NextResponse.next();
-    } catch (error) {
-      // ถ้า token ไม่ถูกต้อง ให้ลบ cookie และ redirect ไปหน้า login
-      const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('token');
-      return response;
-    }
+  // ปล่อย static/_next/assets
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/public") ||
+    pathname.startsWith("/assets") ||
+    pathname.startsWith("/.well-known")
+  ) return NextResponse.next()
+
+  // ปล่อย API สาธารณะ
+  if (PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next()
   }
 
-  // ถ้าเป็นเส้นทาง login หรือ register และมี token ที่ถูกต้อง
-  if (authRoutes.includes(pathname)) {
-    if (token) {
-      try {
-        // ตรวจสอบความถูกต้องของ token
-        jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
-        // ถ้า token ถูกต้อง ให้ redirect ไปหน้า dashboard
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      } catch (error) {
-        // ถ้า token ไม่ถูกต้อง ให้ลบ cookie และปล่อยให้เข้าหน้า login/register ได้
-        const response = NextResponse.next();
-        response.cookies.delete('token');
-        return response;
-      }
-    }
+  // ปล่อยหน้า public
+  if (PUBLIC_PATHS.has(pathname)) {
+    return NextResponse.next()
   }
 
-  return NextResponse.next();
+  // ตรวจคุกกี้ session
+  const token = req.cookies.get("session")?.value
+  if (!token) {
+    const url = req.nextUrl.clone()
+    url.pathname = "/"       // ✅ รีไดเรกต์กลับหน้า Login (หน้าแรก)
+    return NextResponse.redirect(url)
+  }
+
+  try {
+    await jwtVerify(token, JWT_SECRET, { algorithms: ["HS256"] })
+    return NextResponse.next()
+  } catch {
+    const url = req.nextUrl.clone()
+    url.pathname = "/"       // ✅ ถ้าโทเคนเสีย/หมดอายุ → กลับหน้า Login
+    return NextResponse.redirect(url)
+  }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all paths except for:
-     * 1. /api routes
-     * 2. /_next (Next.js internals)
-     * 3. /fonts (inside /public)
-     * 4. /examples (inside /public)
-     * 5. all root files inside /public (e.g. /favicon.ico)
-     */
-    '/((?!api|_next|fonts|examples|[\\w-]+\\.\\w+).*)',
+    "/front/:path*",     // ✅ ป้องกันหน้าฝั่งผู้ใช้
+    // "/backend/:path*", // (ออปชัน) ถ้าต้องการป้องกันหลังบ้านด้วย
   ],
-};
+}

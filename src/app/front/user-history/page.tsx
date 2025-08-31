@@ -10,56 +10,82 @@ interface PatientInfo {
   name: string
   age: string
   IdCard: string
-  hn: string // ✅ เพิ่ม hn
+  hn: string 
   bloodType: string
   DrugAllergy: string
   chronicDisease: string
-  phone: string // เพิ่มข้อมูลเบอร์โทรศัพท์
+  phone: string 
 }
 
 const MedicalHistoryPage = () => {
   const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [patientInfo, setPatientInfo] = useState<PatientInfo>({
     prefix: "",
     name: "",
     age: "",
     IdCard: "",
-    hn: "", // ✅ ค่าเริ่มต้น hn
+    hn: "", 
     bloodType: "B",
     DrugAllergy: "NSAIDs",
     chronicDisease: "ไม่มี",
-    phone: "", // เริ่มต้น phone
+    phone: "", 
   })
 
   useEffect(() => {
-    const citizenId = localStorage.getItem("citizenId")
-    if (citizenId) {
-      fetch(`/api/user/profile?citizenId=${citizenId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          const birthDate = new Date(data.birthday)
-          const now = new Date()
-          const diff = new Date(now.getTime() - birthDate.getTime())
-          const years = diff.getUTCFullYear() - 1970
-          const months = diff.getUTCMonth()
-          const days = diff.getUTCDate() - 1
-          const ageText = `${years} ปี ${months} เดือน ${days} วัน`
-
-          setPatientInfo({
-            prefix: data.prefix,
-            name: data.name,
-            age: ageText,
-            IdCard: data.citizenId,
-            hn: data.hn || "-", // ✅ ดึง hn จาก API
-            bloodType: "B",
-            DrugAllergy: "NSAIDs",
-            chronicDisease: "ไม่มี",
-            phone: data.phone || "-", // ดึงเบอร์โทรจาก API
-          })
-        })
-    }
+    fetchPatientData()
   }, [])
+
+const fetchPatientData = async () => {
+  try {
+    setLoading(true)
+    setError(null)
+
+    const res = await fetch("/api/me", { 
+      cache: "no-store",
+      credentials: 'include'
+    })
+    
+    if (res.status === 401) {
+      router.replace("/")
+      return
+    }
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+    }
+
+    const data = await res.json()
+    console.log('🔍 API Response:', data)
+
+    if (data.ok && data.profile) {
+      const profile = data.profile
+      
+      // ✅ ใช้อายุจาก API โดยตรง (ไม่ต้องคำนวณเอง)
+      setPatientInfo({
+        prefix: profile.prefix || "",
+        name: profile.name || "",
+        age: profile.age || "-", // ✅ ใช้จาก API โดยตรง
+        IdCard: profile.citizenId || "",
+        hn: profile.hn || "-",
+        bloodType: profile.bloodType || "ไม่ระบุ", 
+        DrugAllergy: profile.drugAllergy || "ไม่ระบุ",
+        chronicDisease: profile.chronicDisease || "ไม่มี",
+        phone: profile.phone || "-",
+      })
+    } else {
+      throw new Error(data.error || 'ไม่สามารถโหลดข้อมูลได้')
+    }
+
+  } catch (err: any) {
+    console.error('❌ Error fetching patient data:', err)
+    setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล')
+  } finally {
+    setLoading(false)
+  }
+}
 
   const historyData = [
     {
@@ -93,6 +119,47 @@ const MedicalHistoryPage = () => {
     },
   ]
 
+  // Loading State
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-2xl shadow-md">
+          <div className="flex items-center space-x-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="text-gray-600 text-lg">กำลังโหลดข้อมูล...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-2xl shadow-md max-w-md w-full text-center">
+          <div className="text-red-500 text-xl mb-4">⚠️</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">เกิดข้อผิดพลาด</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="space-x-2">
+            <button
+              onClick={fetchPatientData}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              ลองอีกครั้ง
+            </button>
+            <button
+              onClick={() => router.push("/front/user-dashboard")}
+              className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+            >
+              กลับหน้าหลัก
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
       <div className="w-full max-w-3xl">
@@ -111,7 +178,7 @@ const MedicalHistoryPage = () => {
           }}
         >
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push("/front/user-dashboard")}
             style={{
               backgroundColor: "rgba(255, 255, 255, 0.2)",
               borderRadius: "9999px",
@@ -131,7 +198,16 @@ const MedicalHistoryPage = () => {
 
         {/* Patient Info */}
         <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-md mb-8 transition-all duration-300 hover:shadow-xl border border-gray-100">
-          <h3 className="text-xl sm:text-2xl md:text-3xl font-semibold text-blue-900 mb-6">ข้อมูลผู้ป่วย</h3>
+          <div className="flex justify-between items-start mb-6">
+            <h3 className="text-xl sm:text-2xl md:text-3xl font-semibold text-blue-900">ข้อมูลผู้ป่วย</h3>
+            <button
+              onClick={fetchPatientData}
+              className="bg-blue-100 text-blue-600 px-3 py-1 rounded-lg text-sm hover:bg-blue-200 transition-colors"
+            >
+              รีเฟรช
+            </button>
+          </div>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <p className="text-lg sm:text-xl text-gray-700">
               <strong className="text-blue-900">ชื่อ:</strong> {patientInfo.prefix} {patientInfo.name || "-"}
@@ -155,7 +231,7 @@ const MedicalHistoryPage = () => {
               <strong className="text-blue-900">ประวัติการแพ้ยา:</strong> {patientInfo.DrugAllergy}
             </p>
             <p className="text-lg sm:text-xl text-gray-700">
-              <strong className="text-blue-900">เบอร์โทรศัพท์:</strong> {patientInfo.phone || "-"} {/* แสดงเบอร์โทรศัพท์ */}
+              <strong className="text-blue-900">เบอร์โทรศัพท์:</strong> {patientInfo.phone || "-"}
             </p>
           </div>
         </div>

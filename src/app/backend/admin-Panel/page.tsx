@@ -51,7 +51,7 @@ interface Booking {
   end_time: string
   department_name: string
   status: string
-  cancelled_by?: string // เพิ่มฟิลด์ cancelled_by
+  cancelled_by?: string // ระบุว่าถูกยกเลิกโดยใคร
 }
 
 interface Slot {
@@ -82,8 +82,21 @@ const STATUS_ICONS = {
 }
 
 export default function AdminBookingsPage() {
+  const statusOptions = [
+    { value: "", label: "ทุกสถานะ" },
+    { value: "confirmed", label: "ยืนยันแล้ว" },
+    { value: "pending", label: "รอดำเนินการ" },
+    { value: "cancelled", label: "ยกเลิกแล้ว" },
+  ]
+
+  const timeOptions = [
+    { value: "all", label: "ทั้งหมด" },
+    { value: "today", label: "วันนี้" },
+    { value: "week", label: "สัปดาห์นี้" },
+  ]
   const [bookings, setBookings] = useState<Booking[]>([])
   const [slots, setSlots] = useState<Slot[]>([])
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([])
   const [departmentFilter, setDepartmentFilter] = useState<string>("")
   const [statusFilter, setStatusFilter] = useState<string>("pending")
   const [searchQuery, setSearchQuery] = useState<string>("")
@@ -92,12 +105,24 @@ export default function AdminBookingsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openDeleteModal, setOpenDeleteModal] = useState(false)
-  const [openCancelModal, setOpenCancelModal] = useState(false) // เพิ่ม modal สำหรับการยกเลิก
+  const [openCancelModal, setOpenCancelModal] = useState(false) 
   const [openConfirmModal, setOpenConfirmModal] = useState(false)
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null)
-  const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(null) // เพิ่มตัวแปรเก็บเลขอ้างอิงการจอง
+  const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(null) 
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("bookings")
+
+  // ดึงข้อมูลแผนกทั้งหมด
+  const fetchDepartments = async () => {
+    try {
+      const res = await fetch("/api/admin/departments")
+      if (!res.ok) throw new Error("โหลดข้อมูลแผนกไม่สำเร็จ")
+      const data = await res.json()
+      setDepartments(Array.isArray(data.data) ? data.data : [])
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   const fetchData = async () => {
     setRefreshing(true)
@@ -137,36 +162,21 @@ export default function AdminBookingsPage() {
   }
 
   useEffect(() => {
+    fetchDepartments()
     fetchData()
   }, [])
 
   const departmentOptions = useMemo(
     () => [
       { value: "", label: "ทุกแผนก" },
-      ...Array.from(new Set(bookings.map((b) => b.department_name))).map((dept) => ({
-        value: dept,
-        label: dept,
-      })),
+      ...departments.map((dept) => ({ value: dept.name, label: dept.name })),
     ],
-    [bookings],
+    [departments],
   )
 
-  const statusOptions = [
-    { value: "", label: "ทุกสถานะ" },
-    { value: "confirmed", label: "ยืนยันแล้ว" },
-    { value: "pending", label: "รอดำเนินการ" },
-    { value: "cancelled", label: "ยกเลิกแล้ว" },
-  ]
-
-  const timeOptions = [
-    { value: "all", label: "ทั้งหมด" },
-    { value: "today", label: "วันนี้" },
-    { value: "week", label: "สัปดาห์นี้" },
-  ]
-
   const filteredBookings = bookings.filter((booking) => {
-    // Department filter
-    if (departmentFilter && booking.department_name !== departmentFilter) return false
+  // Department filter
+  if (departmentFilter && booking.department_name !== departmentFilter) return false
 
     // Status filter
     if (statusFilter && booking.status !== statusFilter) return false
@@ -209,15 +219,7 @@ export default function AdminBookingsPage() {
         setBookings((prev) => prev.map((b) => (b.id === selectedBookingId ? { ...b, status: selectedStatus } : b)))
         toast.success(`เปลี่ยนสถานะเป็น "${STATUS_LABELS[selectedStatus || ""]}" สำเร็จ`)
 
-        // ลบโค้ดส่วนนี้ออกทั้งหมด เพื่อไม่ให้มีการนำทางไปยังหน้าอื่น
-        // if (selectedStatus === "confirmed") {
-        //   const confirmedBooking = bookings.find((b) => b.id === selectedBookingId)
-        //   if (confirmedBooking) {
-        //     router.push(`/backend/confirm?id=${selectedBookingId}&ref=${confirmedBooking.booking_reference_number}`)
-        //   } else {
-        //     router.push(`/backend/confirm?id=${selectedBookingId}`)
-        //   }
-        // }
+      
       } else {
         toast.error("อัปเดตสถานะไม่สำเร็จ")
       }
@@ -397,7 +399,7 @@ export default function AdminBookingsPage() {
           {/* แถวที่ 2 */}
           <Card
             className="bg-white shadow rounded-xl w-full hover:shadow-md cursor-pointer transition-all duration-200"
-            onClick={() => router.push("/backend/confirm")}
+            
           >
             <CardContent className="p-3">
               <div className="flex justify-between items-center">

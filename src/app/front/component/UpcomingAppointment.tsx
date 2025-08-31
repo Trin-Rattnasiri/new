@@ -12,35 +12,88 @@ interface Appointment {
   department: string
   user_name: string
   status: string
-  cancelledBy?: string // เพิ่มฟิลด์ cancelledBy
+  cancelledBy?: string
 }
 
 export default function UpcomingAppointment() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const createdBy = typeof window !== "undefined" ? localStorage.getItem("citizenId") : ""
 
   // ดึงข้อมูลการนัดหมายจาก API
   useEffect(() => {
     const fetchAppointments = async () => {
-      if (!createdBy) return
       try {
-        const res = await fetch(`/api/user/upcoming?created_by=${createdBy}`)
-        if (!res.ok) {
-          console.error("ไม่สามารถโหลดข้อมูลใบนัดได้")
-          return
+        setIsLoading(true)
+        setError(null)
+        
+        // ดึงข้อมูล user ก่อน
+        const userRes = await fetch('/api/me', { credentials: 'include' })
+        const userData = await userRes.json()
+        const citizenId = userData.profile?.citizenId
+        
+        if (!citizenId) {
+          throw new Error('ไม่พบข้อมูล Citizen ID')
         }
+        
+        // เรียก API พร้อม parameter (แบบเก่า)
+        const res = await fetch(`/api/user/upcoming?created_by=${citizenId}`, {
+          method: 'GET',
+          credentials: 'include',
+        })
+        
+        if (!res.ok) {
+          if (res.status === 401) {
+            // ถ้าไม่ได้ login ให้ redirect ไปหน้า login
+            router.push('/')
+            return
+          }
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+        }
+        
         const data = await res.json()
-        setAppointments(data)
+        console.log('Appointments data:', data) // debug log
+        setAppointments(Array.isArray(data) ? data : [])
+        
       } catch (err) {
         console.error("❌ Error fetching appointments:", err)
+        setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดข้อมูล")
+      } finally {
+        setIsLoading(false)
       }
     }
 
     fetchAppointments()
-  }, [createdBy])
+  }, [router])
 
-  // หากไม่มีการนัดหมายจะแสดงข้อความนี้
+  // แสดง loading
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-md mt-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-3">นัดหมายที่จะถึง</h3>
+        <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-gray-500">กำลังโหลด...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // แสดง error
+  if (error) {
+    return (
+      <div className="w-full max-w-md mt-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-3">นัดหมายที่จะถึง</h3>
+        <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200 text-center">
+          <AlertCircle className="w-8 h-8 mx-auto text-red-400 mb-2" />
+          <p className="text-red-500 text-sm">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // หากไม่มีการนัดหมาย
   if (!appointments.length) {
     return (
       <div className="w-full max-w-md mt-6">
@@ -58,12 +111,11 @@ export default function UpcomingAppointment() {
       <h3 className="text-xl font-bold text-gray-800 mb-3">นัดหมายที่จะถึง</h3>
 
       <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200">
-        {/* การแสดงรายการการนัดหมาย */}
         {appointments.map((appointment) => (
           <div
             key={appointment.booking_reference_number}
             onClick={() => router.push(`/appointment/${appointment.booking_reference_number}`)}
-            className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-4 hover:bg-blue-50 cursor-pointer transition-all"
+            className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-4 last:mb-0 hover:bg-blue-50 cursor-pointer transition-all"
           >
             <div className="flex flex-col space-y-1 text-sm text-gray-700">
               <div className="flex items-center gap-2">

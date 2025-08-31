@@ -11,35 +11,42 @@ const pool = mysql.createPool({
   queueLimit: 0,
 })
 
-// Helper function for error responses
+// ---------- helpers ----------
 const createErrorResponse = (message: string, status: number = 500, details?: any) => {
-  console.error(`❌ Error (${status}):`, message, details ? details : '')
-  return NextResponse.json({ 
-    error: message, 
-    ...(details && { details }) 
-  }, { status })
+  console.error(`❌ Error (${status}):`, message, details ?? "")
+  return NextResponse.json(
+    { error: message, ...(details && { details }) },
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        Pragma: "no-cache",
+      },
+    },
+  )
 }
 
-// GET handler to fetch appointment details
+const normalizeStatus = (s: string) => {
+  const v = (s || "").trim().toLowerCase()
+  if (v === "canceled" || v === "cancel") return "cancelled" // ใช้มาตรฐาน 2 L
+  return v
+}
+
+// ---------- GET ----------
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ booking_reference_number: string }> }
+  { params }: { params: Promise<{ booking_reference_number: string }> },
 ) {
-  let connection;
-  
+  let connection
   try {
     connection = await pool.getConnection()
-    
-    // รอให้ params resolve ก่อน
-    const resolvedParams = await params
-    const bookingReferenceNumber = resolvedParams.booking_reference_number
 
-    // Validate booking reference number format
-    if (!bookingReferenceNumber || !bookingReferenceNumber.match(/^\d{8}-\d{5}$/)) {
+    const { booking_reference_number } = await params
+    if (!booking_reference_number || !booking_reference_number.match(/^\d{8}-\d{5}$/)) {
       return createErrorResponse("รูปแบบหมายเลขอ้างอิงไม่ถูกต้อง", 400)
     }
 
-    console.log('🔍 ค้นหาข้อมูลการนัดหมาย:', bookingReferenceNumber)
+    console.log("🔍 ค้นหาข้อมูลการนัดหมาย:", booking_reference_number)
 
     const [rows] = await connection.query(
       `SELECT 
@@ -60,80 +67,85 @@ export async function GET(
       JOIN departments d ON b.department_id = d.id
       JOIN slots s ON b.slot_id = s.id
       WHERE b.booking_reference_number = ?`,
-      [bookingReferenceNumber],
+      [booking_reference_number],
     )
-
-    console.log('🔍 ผลการค้นหา:', Array.isArray(rows) ? `พบ ${rows.length} รายการ` : 'ไม่พบข้อมูล')
 
     if (!rows || (rows as any[]).length === 0) {
       return createErrorResponse("ไม่พบข้อมูลการนัดหมาย", 404)
     }
 
     const appointment = (rows as any[])[0]
-    console.log('✅ พบข้อมูลการนัดหมาย ID:', appointment.id)
-    
-    return NextResponse.json(appointment)
-    
+    console.log("✅ พบข้อมูลการนัดหมาย ID:", appointment.id)
+
+    return NextResponse.json(appointment, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        Pragma: "no-cache",
+      },
+    })
   } catch (error: any) {
-    return createErrorResponse(
-      "เกิดข้อผิดพลาดในการดึงข้อมูล", 
-      500, 
-      error.message
-    )
+    return createErrorResponse("เกิดข้อผิดพลาดในการดึงข้อมูล", 500, error.message)
   } finally {
     if (connection) connection.release()
   }
 }
 
-// PUT handler to update appointment status
+// ---------- PUT (update status + push LINE status update) ----------
 export async function PUT(
-  request: NextRequest, 
-  { params }: { params: Promise<{ booking_reference_number: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ booking_reference_number: string }> },
 ) {
-  let connection;
-  
+  let connection
   try {
     connection = await pool.getConnection()
-    
-    // รอให้ params resolve ก่อน
-    const resolvedParams = await params
-    const bookingReferenceNumber = resolvedParams.booking_reference_number
-    
-    let requestData;
-    try {
-      requestData = await request.json()
-    } catch (jsonError) {
-      return createErrorResponse("ข้อมูล JSON ไม่ถูกต้อง", 400)
-    }
-    
-    const { status, cancelledBy } = requestData
 
-    // Validate required fields
-    if (!status) {
-      return createErrorResponse("กรุณาระบุสถานะ", 400)
-    }
-
-    // Validate status values
-    const validStatuses = ['pending', 'confirmed', 'cancelled', 'completed']
-    if (!validStatuses.includes(status)) {
-      return createErrorResponse(`สถานะไม่ถูกต้อง ต้องเป็น: ${validStatuses.join(', ')}`, 400)
-    }
-
-    // Validate booking reference number format
-    if (!bookingReferenceNumber || !bookingReferenceNumber.match(/^\d{8}-\d{5}$/)) {
+    const { booking_reference_number } = await params
+    if (!booking_reference_number || !booking_reference_number.match(/^\d{8}-\d{5}$/)) {
       return createErrorResponse("รูปแบบหมายเลขอ้างอิงไม่ถูกต้อง", 400)
     }
 
-    console.log('🔄 อัพเดทสถานะการนัดหมาย:', bookingReferenceNumber, 'เป็น:', status)
-
-    // เริ่ม transaction เพื่อความปลอดภัยของข้อมูล
-    await connection.beginTransaction()
-
+    let body: any
     try {
-      // ตรวจสอบว่ามีการนัดหมายนี้หรือไม่
+      body = await request.json()
+    } catch {
+      return createErrorResponse("ข้อมูล JSON ไม่ถูกต้อง", 400)
+    }
+
+    let { status, cancelledBy } = body
+    status = normalizeStatus(status)
+    if (!status) return createErrorResponse("กรุณาระบุสถานะ", 400)
+
+    const valid = ["pending", "confirmed", "cancelled", "completed"]
+    if (!valid.includes(status)) {
+      return createErrorResponse(`สถานะไม่ถูกต้อง ต้องเป็น: ${valid.join(", ")}`, 400)
+    }
+
+    console.log("🔄 อัพเดทสถานะการนัดหมาย:", booking_reference_number, "เป็น:", status)
+
+    await connection.beginTransaction()
+    try {
+      // ดึงข้อมูล + line_id เพื่อแจ้ง LINE
       const [bookingRows] = await connection.query(
-        "SELECT id, status, slot_id FROM bookings WHERE booking_reference_number = ?",
-        [bookingReferenceNumber],
+        `SELECT 
+           b.id,
+           b.status,
+           b.slot_id,
+           b.booking_reference_number,
+           b.name,
+           b.hn,
+           b.phone_number,
+           b.created_by,
+           d.name AS department_name,
+           s.slot_date,
+           s.start_time,
+           s.end_time,
+           u.line_id AS lineId     -- << ดึง LINE user id จากตาราง user
+         FROM bookings b
+         JOIN departments d ON b.department_id = d.id
+         JOIN slots s ON b.slot_id = s.id
+         LEFT JOIN \`user\` u ON u.citizenId = b.created_by
+         WHERE b.booking_reference_number = ?`,
+        [booking_reference_number],
       )
 
       if (!bookingRows || (bookingRows as any[]).length === 0) {
@@ -142,192 +154,167 @@ export async function PUT(
       }
 
       const booking = (bookingRows as any[])[0]
-      console.log('🔍 ข้อมูลการจองปัจจุบัน:', { id: booking.id, status: booking.status })
+      console.log("🔍 ข้อมูลการจองปัจจุบัน:", { id: booking.id, status: booking.status })
 
-      // ตรวจสอบว่าสถานะเปลี่ยนแปลงหรือไม่
       if (booking.status === status) {
         await connection.rollback()
-        return NextResponse.json({ 
-          message: "สถานะการนัดหมายเหมือนเดิม ไม่มีการเปลี่ยนแปลง",
-          current_status: status 
-        })
+        return NextResponse.json(
+          { message: "สถานะการนัดหมายเหมือนเดิม ไม่มีการเปลี่ยนแปลง", current_status: status },
+          { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache" } },
+        )
       }
 
-      // อัพเดทสถานะการนัดหมาย
+      // อัปเดตสถานะ
       const [updateResult] = await connection.query(
-        "UPDATE bookings SET status = ?, cancelled_by = ? WHERE booking_reference_number = ?", 
-        [status, cancelledBy || null, bookingReferenceNumber]
+        "UPDATE bookings SET status = ?, cancelled_by = ? WHERE booking_reference_number = ?",
+        [status, cancelledBy || null, booking_reference_number],
       )
-
-      const affectedRows = (updateResult as any).affectedRows
-      console.log('🔄 จำนวนแถวที่อัพเดท:', affectedRows)
-
-      if (affectedRows === 0) {
+      if ((updateResult as any).affectedRows === 0) {
         await connection.rollback()
         return createErrorResponse("ไม่สามารถอัพเดทข้อมูลได้", 500)
       }
 
-      // ถ้าสถานะเดิมไม่ใช่ยกเลิก และกำลังเปลี่ยนเป็นยกเลิก ให้เพิ่มจำนวนที่นั่งว่างในช่วงเวลานั้น
+      // ปรับที่นั่งว่างตามการเปลี่ยนสถานะ
       if (booking.status !== "cancelled" && status === "cancelled") {
-        console.log('🔄 เพิ่มที่นั่งว่างกลับไปที่ slot:', booking.slot_id)
-        
-        const [slotUpdateResult] = await connection.query(
-          "UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", 
-          [booking.slot_id]
-        )
-        
-        const slotAffectedRows = (slotUpdateResult as any).affectedRows
-        console.log('🔄 อัพเดท slot สำเร็จ:', slotAffectedRows, 'แถว')
-      }
-      
-      // ถ้าสถานะเดิมเป็นยกเลิก และกำลังเปลี่ยนเป็นสถานะอื่น ให้ลดจำนวนที่นั่งว่าง
-      else if (booking.status === "cancelled" && status !== "cancelled") {
-        console.log('🔄 ลดที่นั่งว่างจาก slot:', booking.slot_id)
-        
-        // ตรวจสอบที่นั่งว่างก่อน
-        const [slotCheckRows] = await connection.query(
-          "SELECT available_seats FROM slots WHERE id = ?", 
-          [booking.slot_id]
-        )
-        
-        if (!slotCheckRows || (slotCheckRows as any[]).length === 0) {
-          await connection.rollback()
-          return createErrorResponse("ไม่พบข้อมูลช่วงเวลา", 404)
-        }
-        
-        const availableSeats = (slotCheckRows as any[])[0].available_seats
-        if (availableSeats <= 0) {
+        await connection.query("UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", [booking.slot_id])
+      } else if (booking.status === "cancelled" && status !== "cancelled") {
+        const [slotCheck] = await connection.query("SELECT available_seats FROM slots WHERE id = ?", [booking.slot_id])
+        const available = (slotCheck as any[])[0]?.available_seats ?? 0
+        if (available <= 0) {
           await connection.rollback()
           return createErrorResponse("ช่วงเวลานี้เต็มแล้ว ไม่สามารถเปลี่ยนสถานะได้", 400)
         }
-        
-        const [slotUpdateResult] = await connection.query(
-          "UPDATE slots SET available_seats = available_seats - 1 WHERE id = ?", 
-          [booking.slot_id]
-        )
-        
-        console.log('🔄 ลดที่นั่งว่างสำเร็จ')
+        await connection.query("UPDATE slots SET available_seats = available_seats - 1 WHERE id = ?", [booking.slot_id])
       }
 
-      // commit transaction
       await connection.commit()
-      console.log('✅ อัพเดทสถานะการนัดหมายสำเร็จ')
+      console.log("✅ อัพเดทสถานะการนัดหมายสำเร็จ")
 
-      return NextResponse.json({ 
-        message: "อัพเดทสถานะการนัดหมายเรียบร้อย",
-        booking_reference_number: bookingReferenceNumber,
-        new_status: status,
-        previous_status: booking.status
-      })
-      
-    } catch (error) {
+      // ---- แจ้ง LINE แบบ fire-and-forget (ไม่ให้ทำให้ PUT พังถ้าส่งไม่สำเร็จ) ----
+      ;(async () => {
+        try {
+          const lineUserId = booking.lineId // มาจาก LEFT JOIN `user`
+          if (!lineUserId) {
+            console.warn("⚠️ ไม่พบ LINE userId (line_id) สำหรับ citizenId:", booking.created_by)
+            return
+          }
+
+          let baseUrl =
+            process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || (request.nextUrl && request.nextUrl.origin) || ""
+          if (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1)
+
+          const payload = {
+            userId: String(lineUserId),
+            statusUpdateDetails: {
+              referenceNumber: booking.booking_reference_number,
+              department: booking.department_name,
+              date: booking.slot_date,
+              time: `${String(booking.start_time).slice(0, 5)}-${String(booking.end_time).slice(0, 5)}`,
+              oldStatus: booking.status,
+              newStatus: status,
+              statusMessage: status === "cancelled" ? "ผู้ใช้ยกเลิกคิวผ่านระบบ" : "มีการเปลี่ยนแปลงสถานะการนัดหมาย",
+              adminNote: cancelledBy ? `cancelledBy=${cancelledBy}` : null,
+            },
+          }
+
+          console.log("📤 ส่งแจ้งเตือน LINE:", JSON.stringify(payload, null, 2))
+          const notifyRes = await fetch(`${baseUrl}/api/line-notification`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+          if (!notifyRes.ok) {
+            console.error("❌ ส่งแจ้งเตือนไป LINE ไม่สำเร็จ:", notifyRes.status, await notifyRes.text())
+          } else {
+            console.log("✅ ส่งแจ้งเตือนไป LINE สำเร็จ")
+          }
+        } catch (e: any) {
+          console.error("❌ เกิดข้อผิดพลาดระหว่างส่งแจ้งเตือนไป LINE:", e?.message || e)
+        }
+      })()
+      // ------------------------------------------------------------------------
+
+      return NextResponse.json(
+        {
+          message: "อัพเดทสถานะการนัดหมายเรียบร้อย",
+          booking_reference_number,
+          new_status: status,
+          previous_status: booking.status,
+        },
+        { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache" } },
+      )
+    } catch (err) {
       await connection.rollback()
-      throw error
+      throw err
     }
-    
   } catch (error: any) {
-    return createErrorResponse(
-      "เกิดข้อผิดพลาดในการอัพเดทข้อมูล", 
-      500, 
-      error.message
-    )
+    return createErrorResponse("เกิดข้อผิดพลาดในการอัพเดทข้อมูล", 500, error.message)
   } finally {
+    // @ts-ignore
     if (connection) connection.release()
   }
 }
 
-// DELETE handler to remove appointment
+// ---------- DELETE ----------
 export async function DELETE(
-  request: NextRequest, 
-  { params }: { params: Promise<{ booking_reference_number: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ booking_reference_number: string }> },
 ) {
-  let connection;
-  
+  let connection
   try {
     connection = await pool.getConnection()
-    
-    // รอให้ params resolve ก่อน
-    const resolvedParams = await params
-    const bookingReferenceNumber = resolvedParams.booking_reference_number
 
-    // Validate booking reference number format
-    if (!bookingReferenceNumber || !bookingReferenceNumber.match(/^\d{8}-\d{5}$/)) {
+    const { booking_reference_number } = await params
+    if (!booking_reference_number || !booking_reference_number.match(/^\d{8}-\d{5}$/)) {
       return createErrorResponse("รูปแบบหมายเลขอ้างอิงไม่ถูกต้อง", 400)
     }
 
-    console.log('🗑️ ลบการนัดหมาย:', bookingReferenceNumber)
+    console.log("🗑️ ลบการนัดหมาย:", booking_reference_number)
 
-    // เริ่ม transaction
     await connection.beginTransaction()
-
     try {
-      // ตรวจสอบว่ามีการนัดหมายนี้หรือไม่
       const [bookingRows] = await connection.query(
         "SELECT id, status, slot_id, name FROM bookings WHERE booking_reference_number = ?",
-        [bookingReferenceNumber],
+        [booking_reference_number],
       )
-
       if (!bookingRows || (bookingRows as any[]).length === 0) {
         await connection.rollback()
         return createErrorResponse("ไม่พบข้อมูลการนัดหมาย", 404)
       }
 
       const booking = (bookingRows as any[])[0]
-      console.log('🔍 ข้อมูลการจองที่จะลบ:', { 
-        id: booking.id, 
-        name: booking.name, 
-        status: booking.status 
-      })
 
-      // ถ้าสถานะไม่ใช่ยกเลิก ให้เพิ่มจำนวนที่นั่งว่างในช่วงเวลานั้น
       if (booking.status !== "cancelled") {
-        console.log('🔄 เพิ่มที่นั่งว่างกลับไปที่ slot:', booking.slot_id)
-        
-        const [slotUpdateResult] = await connection.query(
-          "UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", 
-          [booking.slot_id]
-        )
-        
-        const slotAffectedRows = (slotUpdateResult as any).affectedRows
-        console.log('🔄 อัพเดท slot สำเร็จ:', slotAffectedRows, 'แถว')
+        await connection.query("UPDATE slots SET available_seats = available_seats + 1 WHERE id = ?", [booking.slot_id])
       }
 
-      // ลบการนัดหมาย
-      const [deleteResult] = await connection.query(
-        "DELETE FROM bookings WHERE booking_reference_number = ?", 
-        [bookingReferenceNumber]
-      )
-
-      const affectedRows = (deleteResult as any).affectedRows
-      console.log('🗑️ จำนวนแถวที่ลบ:', affectedRows)
-
-      if (affectedRows === 0) {
+      const [del] = await connection.query("DELETE FROM bookings WHERE booking_reference_number = ?", [
+        booking_reference_number,
+      ])
+      if ((del as any).affectedRows === 0) {
         await connection.rollback()
         return createErrorResponse("ไม่สามารถลบข้อมูลได้", 500)
       }
 
-      // commit transaction
       await connection.commit()
-      console.log('✅ ลบการนัดหมายสำเร็จ')
+      console.log("✅ ลบการนัดหมายสำเร็จ")
 
-      return NextResponse.json({ 
-        message: "ลบการนัดหมายเรียบร้อย",
-        deleted_booking_reference_number: bookingReferenceNumber,
-        deleted_booking_name: booking.name
-      })
-      
-    } catch (error) {
+      return NextResponse.json(
+        {
+          message: "ลบการนัดหมายเรียบร้อย",
+          deleted_booking_reference_number: booking_reference_number,
+          deleted_booking_name: booking.name,
+        },
+        { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache" } },
+      )
+    } catch (err) {
       await connection.rollback()
-      throw error
+      throw err
     }
-    
   } catch (error: any) {
-    return createErrorResponse(
-      "เกิดข้อผิดพลาดในการลบข้อมูล", 
-      500, 
-      error.message
-    )
+    return createErrorResponse("เกิดข้อผิดพลาดในการลบข้อมูล", 500, error.message)
   } finally {
+    // @ts-ignore
     if (connection) connection.release()
   }
 }

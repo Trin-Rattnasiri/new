@@ -41,10 +41,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
+interface UserData {
+  username: string
+  role: string
+  isSuperAdmin: boolean
+  permissions: string[]
+}
+
 interface SubMenuItem {
   title: string
   path: string
   icon?: React.ReactNode
+  permission?: string
 }
 
 interface SidebarItem {
@@ -52,7 +60,7 @@ interface SidebarItem {
   path?: string
   icon: React.ReactNode
   submenu?: SubMenuItem[]
-  requireSuperAdmin?: boolean
+  permission?: string
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -65,20 +73,24 @@ const sidebarItems: SidebarItem[] = [
     title: "รายการนัด",
     path: "/backend/admin-Panel",
     icon: <Calendar size={20} />,
+    permission: "view_appointments"
   },
   {
     title: "จัดการแผนก",
     icon: <Building size={20} />,
+    permission: "manage_departments",
     submenu: [
       {
         title: "เพิ่มแผนก",
         path: "/backend/admin-list",
         icon: <Building size={16} />,
+        permission: "add_departments"
       },
       {
         title: "เพิ่มเวลา",
         path: "/backend/admin-dashboard",
         icon: <Clock size={16} />,
+        permission: "manage_schedule"
       },
     ],
   },
@@ -86,18 +98,19 @@ const sidebarItems: SidebarItem[] = [
     title: "ข่าวสาร",
     path: "/backend/admin-news",
     icon: <FileText size={20} />,
+    permission: "manage_news"
   },
   {
     title: "จัดการผู้ดูแล",
     path: "/backend/admin-manage",
     icon: <ShieldCheck size={20} />,
-    requireSuperAdmin: true,
+    permission: "manage_admins"
   },
   {
     title: "เพิ่มประวัติคนไข้",
     path: "/backend/admin-patient-form",
     icon: <ShieldCheck size={20} />,
-    requireSuperAdmin: true,
+    permission: "manage_patients"
   },
 ]
 
@@ -105,9 +118,9 @@ const Sidebar = () => {
   const pathname = usePathname()
   const router = useRouter()
   
-  // User state
-  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false)
-  const [username, setUsername] = useState<string>("")
+  // User state - ไม่เก็บข้อมูลสำคัญใน state
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
   
   // UI state
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null)
@@ -119,6 +132,48 @@ const Sidebar = () => {
   const [newAppointmentsCount, setNewAppointmentsCount] = useState<number>(0)
   const [isLoadingNotifications, setIsLoadingNotifications] = useState<boolean>(true)
 
+  // ตรวจสอบสิทธิ์ผ่าน API
+  const checkUserPermission = (permission: string): boolean => {
+    if (!userData || !userData.permissions) return false
+    return userData.permissions.includes(permission) || userData.isSuperAdmin
+  }
+
+  // ดึงข้อมูลผู้ใช้จาก server
+  const fetchUserData = async (): Promise<void> => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include', // รวม httpOnly cookies
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Session หมดอายุ
+          router.push('/login')
+          return
+        }
+        throw new Error('Failed to fetch user data')
+      }
+
+      const data = await response.json()
+      setUserData({
+        username: data.username,
+        role: data.role,
+        isSuperAdmin: data.role === 'SuperAdmin',
+        permissions: data.permissions || []
+      })
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+      // Redirect to login if authentication fails
+      router.push('/login')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Toggle submenu function
   const toggleSubmenu = (index: number) => {
     setOpenSubmenu(openSubmenu === index ? null : index)
@@ -128,7 +183,10 @@ const Sidebar = () => {
   const handleNotificationClick = async () => {
     if (hasNewNotifications) {
       try {
-        // TODO: Replace with actual API call to mark notifications as read
+        await fetch('/api/admin/notifications/mark-read', {
+          method: 'POST',
+          credentials: 'include',
+        })
         setHasNewNotifications(false)
         setNewAppointmentsCount(0)
         router.push("/backend/admin-Panel")
@@ -138,7 +196,7 @@ const Sidebar = () => {
     }
   }
 
-  // Logout handlers
+  // Logout handlers - ปลอดภัยกว่าเดิม
   const handleLogoutClick = () => {
     setShowLogoutDialog(true)
   }
@@ -146,13 +204,19 @@ const Sidebar = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
-      // TODO: Add API call to logout from server
-      localStorage.clear()
-      setTimeout(() => {
-        router.push("/")
-      }, 500)
+      // เรียก API เพื่อลบ session บน server
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      
+      // ไม่ต้องทำ localStorage.clear() เพราะไม่ได้ใช้ localStorage
+      router.push("/login")
     } catch (error) {
       console.error('Logout error:', error)
+      // แม้ logout ล้มเหลว ก็ให้ redirect ไป login
+      router.push("/login")
+    } finally {
       setIsLoggingOut(false)
     }
   }
@@ -163,14 +227,23 @@ const Sidebar = () => {
 
   // Fetch notifications data
   const fetchNotifications = async () => {
+    if (!userData) return
+    
     try {
       setIsLoadingNotifications(true)
-      const res = await fetch("/api/admin/notifications")
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`Failed to fetch notifications: ${text}`)
-    }
-    const data = await res.json()
+      const res = await fetch("/api/admin/notifications", {
+        credentials: 'include'
+      })
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          router.push('/login')
+          return
+        }
+        throw new Error(`Failed to fetch notifications: ${res.statusText}`)
+      }
+      
+      const data = await res.json()
       setHasNewNotifications(data.hasNew)
       setNewAppointmentsCount(data.count)
     } catch (error) {
@@ -184,59 +257,79 @@ const Sidebar = () => {
 
   // Get user initials
   const getInitials = () => {
-    if (username) {
-      return username
+    if (userData?.username) {
+      return userData.username
         .split(' ')
         .map(name => name.charAt(0))
         .join('')
         .toUpperCase()
         .slice(0, 2)
     }
-    return isSuperAdmin ? "SA" : "AD"
+    return userData?.isSuperAdmin ? "SA" : "AD"
   }
 
   // Initialize user data and permissions
   useEffect(() => {
-    const initializeUser = () => {
-      const role = localStorage.getItem("role")
-      const storedUsername = localStorage.getItem("username")
-      setIsSuperAdmin(role === "SuperAdmin")
-      if (storedUsername) {
-        setUsername(storedUsername)
-      }
-    }
-    initializeUser()
-    fetchNotifications()
+    fetchUserData()
   }, [])
 
-  // Handle route protection
+  // Fetch notifications when user data is available
   useEffect(() => {
-    const protectedRoutes = ["/backend/admin-manage", "/backend/admin-patient-form"]
-    const isProtectedRoute = protectedRoutes.some(route => 
-      pathname.startsWith(route)
-    )
-    if (isProtectedRoute && !isSuperAdmin) {
-      router.push("/backend/admin-Panel")
+    if (userData) {
+      fetchNotifications()
     }
-  }, [pathname, isSuperAdmin, router])
+  }, [userData])
+
+  // Handle route protection - ตรวจสอบทั้ง client และจะตรวจสอบที่ server ด้วย
+  useEffect(() => {
+    if (!userData || isLoading) return
+
+    const protectedRoutes = [
+      { path: "/backend/admin-manage", permission: "manage_admins" },
+      { path: "/backend/admin-patient-form", permission: "manage_patients" }
+    ]
+    
+    const currentRoute = protectedRoutes.find(route => 
+      pathname.startsWith(route.path)
+    )
+    
+    if (currentRoute && !checkUserPermission(currentRoute.permission)) {
+      router.push("/backend/dashboard")
+    }
+  }, [pathname, userData, isLoading])
 
   // Auto-refresh notifications every 30 seconds
   useEffect(() => {
+    if (!userData) return
+    
     const intervalId = setInterval(() => {
       fetchNotifications()
     }, 30000)
     return () => clearInterval(intervalId)
-  }, [])
+  }, [userData])
 
   // Mark notifications as read when visiting appointment page
   useEffect(() => {
     if (pathname === "/backend/admin-Panel" && hasNewNotifications) {
       setTimeout(() => {
-        setHasNewNotifications(false)
-        setNewAppointmentsCount(0)
+        handleNotificationClick()
       }, 1000)
     }
   }, [pathname, hasNewNotifications])
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="h-screen bg-white border-r flex items-center justify-center w-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  // Redirect to login if no user data
+  if (!userData) {
+    return null
+  }
 
   return (
     <div className="h-screen bg-white border-r flex flex-col w-64 shadow-sm">
@@ -245,10 +338,10 @@ const Sidebar = () => {
         <div className="flex items-center">
           <Image 
            src="/logo.png" 
-  alt="Logo" 
-  width={190} 
-  height={48} 
-  className="object-contain w-40 sm:w-48 animate-fade-in hover:scale-105 transition-transform duration-200" 
+           alt="Logo" 
+           width={190} 
+           height={48} 
+           className="object-contain w-40 sm:w-48 animate-fade-in hover:scale-105 transition-transform duration-200" 
             priority
             onError={(e) => {
               e.currentTarget.src = "/fallback-logo.png"
@@ -265,7 +358,7 @@ const Sidebar = () => {
             <DropdownMenuTrigger asChild>
               <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 cursor-pointer hover:border-blue-200 transition-colors">
                 <Avatar className="h-9 w-9 border-2 border-blue-200">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt={username || "แอดมิน"} />
+                  <AvatarImage src="/placeholder-avatar.jpg" alt={userData.username || "แอดมิน"} />
                   <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-medium">
                     {getInitials()}
                   </AvatarFallback>
@@ -273,7 +366,7 @@ const Sidebar = () => {
                 <div className="text-left overflow-hidden flex-1">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-blue-900 truncate">
-                      {username || "แอดมิน"}
+                      {userData.username || "แอดมิน"}
                     </p>
                     <div className="flex items-center">
                       {isLoadingNotifications ? (
@@ -287,7 +380,7 @@ const Sidebar = () => {
                     </div>
                   </div>
                   <p className="text-xs text-blue-600">
-                    {isSuperAdmin ? "SuperAdmin" : "เจ้าหน้าที่"}
+                    {userData.role}
                   </p>
                 </div>
               </div>
@@ -312,7 +405,7 @@ const Sidebar = () => {
                   </span>
                 )}
               </DropdownMenuItem>
-              {isSuperAdmin && (
+              {checkUserPermission("manage_admins") && (
                 <DropdownMenuItem onClick={() => router.push("/backend/admin-manage")}>
                   <div className="w-4 h-4 flex items-center justify-center mr-2">
                     <ShieldCheck className="h-4 w-4 text-indigo-500" />
@@ -344,6 +437,9 @@ const Sidebar = () => {
             </div>
 
             {sidebarItems.map((item, index) => {
+              // ตรวจสอบสิทธิ์แบบปลอดภัย
+              const hasPermission = !item.permission || checkUserPermission(item.permission)
+              
               const isActive = item.path
                 ? pathname === item.path
                 : item.submenu?.some((subItem) => pathname === subItem.path)
@@ -351,7 +447,7 @@ const Sidebar = () => {
               const isAppointmentItem = item.title === "รายการนัด"
               const showBadge = isAppointmentItem && newAppointmentsCount > 0
 
-              if (item.requireSuperAdmin && !isSuperAdmin) {
+              if (!hasPermission) {
                 return (
                   <div
                     key={`${item.title}-${index}`}
@@ -365,6 +461,14 @@ const Sidebar = () => {
               }
 
               if (item.submenu) {
+                const visibleSubItems = item.submenu.filter(subItem => 
+                  !subItem.permission || checkUserPermission(subItem.permission)
+                )
+
+                if (visibleSubItems.length === 0) {
+                  return null
+                }
+
                 return (
                   <div key={`${item.title}-${index}`} className="mb-1">
                     <div>
@@ -395,7 +499,7 @@ const Sidebar = () => {
 
                       {openSubmenu === index && (
                         <div className="mt-1 ml-2 pl-6 border-l-2 border-indigo-100 space-y-1">
-                          {item.submenu.map((subItem, subIndex) => {
+                          {visibleSubItems.map((subItem, subIndex) => {
                             const isSubItemActive = pathname === subItem.path
                             return (
                               <Link
