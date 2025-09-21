@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import mysql from "mysql2/promise";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 // ✅ ตั้งค่าการเชื่อมต่อ MySQL
 const pool = mysql.createPool({

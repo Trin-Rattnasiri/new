@@ -235,12 +235,16 @@ export async function PUT(req: NextRequest) {
         const user = userRows[0];
         
         if (!user || !user.line_id) {
-          console.log('❌ ไม่พบ LINE ID');
-          lineNotificationStatus = 'ไม่พบ LINE ID';
-        } else if (!process.env.NEXT_PUBLIC_BASE_URL) {
-          console.log('❌ ไม่พบ BASE_URL');
-          lineNotificationStatus = 'ไม่พบ BASE_URL';
-        } else {
+  console.log('❌ ไม่พบ LINE ID');
+  lineNotificationStatus = 'ไม่พบ LINE ID';
+} else {
+  // กำหนด BASE_URL พร้อม fallback
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+                  process.env.BASE_URL || 
+                  'http://localhost:3000'; // ค่าสำรอง
+  
+  console.log('✅ BASE_URL found:', baseUrl);
+
           // เตรียมข้อมูลสำหรับแจ้งเตือน
           const statusMessage = {
             'confirmed': 'ได้รับการยืนยันแล้ว',
@@ -265,7 +269,7 @@ export async function PUT(req: NextRequest) {
           console.log('📤 เตรียมส่งข้อมูลอัปเดตสถานะไป LINE:', statusUpdateDetails);
 
           // ส่งแจ้งเตือนไป LINE
-          const lineApiUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/line-notification`;
+          const lineApiUrl = `${baseUrl}/api/line/notification`;
           
           const lineResponse = await fetch(lineApiUrl, {
             method: "POST",

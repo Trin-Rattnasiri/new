@@ -1,3 +1,4 @@
+// src/app/api/admin/que/route.ts
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
@@ -26,9 +27,17 @@ export async function POST(req: Request) {
       slot_id,
       id_card_number,  // จะเก็บลง column `hn`
       created_by,
+      phone_number,    // ✅ เพิ่มการรับค่า phone_number
     } = body;
     
-    console.log('📋 Extracted data:', { user_name, department_id, slot_id, id_card_number, created_by });
+    console.log('📋 Extracted data:', { 
+      user_name, 
+      department_id, 
+      slot_id, 
+      id_card_number, 
+      created_by,
+      phone_number // ✅ เพิ่มใน log
+    });
 
     if (!user_name || !department_id || !slot_id) {
       return NextResponse.json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
@@ -51,10 +60,10 @@ export async function POST(req: Request) {
 
     const { available_seats, start_time, end_time, slot_date } = slotData;
 
-    // บันทึกการจองลง bookings
+    // ✅ แก้ไข SQL INSERT - เพิ่ม phone_number
     const insertQuery = `
-      INSERT INTO bookings (created_by, name, department_id, slot_id, hn, booking_date, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending')
+      INSERT INTO bookings (created_by, name, department_id, slot_id, hn, booking_date, status, phone_number)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
     `;
     const [result] = await connection.query(insertQuery, [
       created_by || null,
@@ -62,7 +71,8 @@ export async function POST(req: Request) {
       department_id,
       slot_id,
       id_card_number,
-      slot_date, // ✅ ใช้ slot_date จากฐานข้อมูล
+      slot_date,
+      phone_number || null, // ✅ เพิ่มการบันทึก phone_number
     ]);
 
     if ((result as mysql.ResultSetHeader).affectedRows > 0) {
@@ -92,6 +102,7 @@ export async function POST(req: Request) {
         console.log('🔍 เริ่มการส่งแจ้งเตือนไป LINE...');
         console.log('created_by (citizenId):', created_by);
         console.log('user_name:', user_name);
+        console.log('phone_number:', phone_number); // ✅ เพิ่ม log phone_number
         
         // เพิ่มการตรวจสอบค่าก่อนค้นหา
         if (!created_by) {
@@ -161,7 +172,7 @@ export async function POST(req: Request) {
                 console.log('📤 LINE User ID:', user.line_id);
 
                 // ส่งแจ้งเตือนไป LINE
-                const lineApiUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/line-notification`;
+                const lineApiUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/line/notification`;
                 console.log('📤 LINE API URL:', lineApiUrl);
                 
                 const lineResponse = await fetch(lineApiUrl, {
@@ -213,7 +224,8 @@ export async function POST(req: Request) {
         bookingDate: slot_date,
         timeSlot: timeSlotMessage,
         id: bookingId,
-        lineNotificationStatus: lineNotificationStatus // เพิ่มสถานะการส่ง LINE
+        phoneNumber: phone_number, // ✅ เพิ่มใน response
+        lineNotificationStatus: lineNotificationStatus
       }, { status: 201 });
     } else {
       return NextResponse.json({ message: 'ไม่สามารถจองคิวได้' }, { status: 400 });

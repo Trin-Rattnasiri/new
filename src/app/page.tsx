@@ -23,9 +23,9 @@ export default function LoginPage() {
   const [loginData, setLoginData] = useState<any>(null)
 
   // ✅ สถานะ PDPA
-  const [pdpaAccepted, setPdpaAccepted] = useState(false)
-  const [marketingOptIn, setMarketingOptIn] = useState(false)
-  const [showPdpaDialog, setShowPdpaDialog] = useState(false)
+  const [pdpaAccepted, setPdpaAccepted] = useState(false)// ต้องติ๊กก่อนเข้าสู่ระบบ
+  const [marketingOptIn, setMarketingOptIn] = useState(false)// ไม่บังคับ// ✅ dialog แสดงนโยบายความเป็นส่วนตัว (PDPA)
+  const [showPdpaDialog, setShowPdpaDialog] = useState(false) 
 
   const handleCitizenIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "").slice(0, 13)
@@ -37,24 +37,24 @@ export default function LoginPage() {
 
     if (!pdpaAccepted) {
       setError("กรุณายอมรับนโยบายความเป็นส่วนตัว (PDPA) ก่อนเข้าสู่ระบบ")
-      return
+      return// ต้องติ๊กก่อนเข้าสู่ระบบ
     }
     if (password.length < 6) {
       setError("กรุณากรอกรหัสผ่านอย่างน้อย 6 ตัว")
-      return
+      return// รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัว
     }
-    if (!citizenId || citizenId.trim().length < 3) {
+    if (!citizenId || citizenId.trim().length < 3) {// เลขบัตรประชาชนต้องมีความยาวอย่างน้อย 3 ตัว
       setError("กรุณากรอกเลขประจำตัวประชาชนให้ถูกต้อง")
       return
     }
 
-    setLoading(true)
+    setLoading(true)// กำลังเข้าสู่ระบบ...
     try {
-      // 1) บันทึก consent ก่อนเข้าสู่ระบบ (ฝั่งเซิร์ฟเวอร์ HMAC ให้อยู่แล้ว)
+      // 1) บันทึก consent ก่อนเข้าสู่ระบบ
       try {
         await fetch("/api/consent/log", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },// แจ้ง server ว่าผู้ใช้ยอมรับ PDPA แล้ว
           body: JSON.stringify({
             citizenId,
             acceptedAt: new Date().toISOString(),
@@ -69,10 +69,10 @@ export default function LoginPage() {
       // 2) เรียก login — เซิร์ฟเวอร์จะตั้ง HttpOnly cookie ให้
       const res = await fetch("/api/user/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },// ส่ง citizenId กับ password ไปที่ API
         body: JSON.stringify({ citizenId, password }),
       })
-      const data = await res.json()
+      const data = await res.json()// ถ้าไม่ผ่าน จะมีสถานะไม่ใช่ ok และมีข้อความ error กลับมา
 
       if (!res.ok) {
         setError(data.error || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ")
@@ -88,13 +88,13 @@ export default function LoginPage() {
         if (data.role === "SuperAdmin" || data.role === "เจ้าหน้าที่") {
           router.push("/backend/dashboard")
         } else {
-          router.push("/front/user-dashboard")
+          router.push("/front/user-dashboard")// ผู้ใช้ทั่วไป
         }
-      }, 1000)
+      }, 1000)// รอ 1 วินาทีเพื่อให้ผู้ใช้เห็น dialog ว่าเข้าสู่ระบบสำเร็จ
     } catch {
       setError("เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง")
     }
-    setLoading(false)
+    setLoading(false)// เสร็จสิ้นการเข้าสู่ระบบ
   }
 
   return (
@@ -140,14 +140,14 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="กรอกรหัสผ่าน"
               className="w-full p-3 pr-12 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-              onKeyDown={(e) => { if (e.key === "Enter") handleLogin() }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleLogin() }}// กด Enter เพื่อเข้าสู่ระบบ
               autoComplete="current-password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute top-1/2 right-3 -translate-y-1/2 text-xl text-gray-500 hover:text-blue-600"
-              aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+              aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}// ปุ่มแสดง/ซ่อนรหัสผ่าน
             >
               {showPassword ? <FiEyeOff /> : <FiEye />}
             </button>
@@ -219,7 +219,7 @@ export default function LoginPage() {
 
       <footer className="mt-8 text-sm text-gray-500">© 2025 โรงพยาบาลแม่จัน | All Rights Reserved</footer>
 
-      {/* Success Dialog */}
+      {/* Success Dialog */} 
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="sm:max-w-md p-6">
           <div className="flex flex-col items-center justify-center text-center">
@@ -231,7 +231,7 @@ export default function LoginPage() {
               {loginData?.role === "SuperAdmin" || loginData?.role === "เจ้าหน้าที่" ? (
                 <>คุณกำลังเข้าสู่ระบบในฐานะ <span className="font-semibold text-blue-600">{loginData?.role}</span></>
               ) : null}
-              <br />กำลังนำคุณไปยังหน้าหลัก...
+              <br />กำลังนำคุณไปยังหน้าหลัก... 
             </DialogDescription>
           </div>
         </DialogContent>
@@ -260,3 +260,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

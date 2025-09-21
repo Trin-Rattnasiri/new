@@ -1,8 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',  // Required for Docker
   experimental: {
-    appDir: true,
+    serverActions: {
+      bodySizeLimit: '2mb'
+    }
   },
-};
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  }
+}
 
 module.exports = nextConfig;

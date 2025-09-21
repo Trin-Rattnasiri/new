@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { signSession } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 
+
 export const runtime = "nodejs";
 
-// Rate limiting storage (ใน production ใช้ Redis)
+// Rate limiting storage (ใน production ใช้ Redis) //ป้องกันการพยายามเข้าสู่ระบบมากเกินไป
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
 
 function checkRateLimit(ip: string, citizenId: string): boolean {
-  const key = `${ip}:${citizenId}`;
-  const now = Date.now();
-  const attempt = loginAttempts.get(key);
+  const key = `${ip}:${citizenId}`;// แยกตาม IP และ ชื่อผู้ใช้
+  const now = Date.now();// เวลาปัจจุบัน
+  const attempt = loginAttempts.get(key);// ดูข้อมูลการพยายามล่าสุด
   
   if (!attempt) {
-    loginAttempts.set(key, { count: 1, lastAttempt: now });
+    loginAttempts.set(key, { count: 1, lastAttempt: now });// บันทึกครั้งแรก
     return true;
   }
   
@@ -35,20 +36,20 @@ function checkRateLimit(ip: string, citizenId: string): boolean {
 
 export async function POST(req: NextRequest) {
   let connection: any = null;
-  const clientIP = req.ip || req.headers.get('x-forwarded-for') || 'unknown';
+  const clientIP = req.ip || req.headers.get('x-forwarded-for') || 'unknown';// ดึง IP ของผู้ใช้
   
   try {
-    const { citizenId, password } = await req.json();
-    
+    const { citizenId, password } = await req.json(); // รับข้อมูลจากทาง client หรือ mobile app
+    console.log('📝 Login payload received:', { citizenId, ip: clientIP });// มีข้อมูลหรือไม่
     // Input validation
     if (!citizenId || !password) {
-      console.warn(`⚠️ Invalid input from ${clientIP}`);
+      console.warn(`⚠️ Invalid input from ${clientIP}`);// เตือนถ้าข้อมูลไม่ครบ
       return NextResponse.json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" }, { status: 401 });
     }
     
     // Rate limiting
     if (!checkRateLimit(clientIP, citizenId)) {
-      console.warn(`🚨 Rate limit exceeded: ${citizenId} from ${clientIP}`);
+      console.warn(`🚨 Rate limit exceeded: ${citizenId} from ${clientIP}`);//เตือนการเข้าสู่ระบบบ
       return NextResponse.json({ 
         error: "มีการเข้าสู่ระบบผิดพลาดมากเกินไป กรุณารอ 15 นาที" 
       }, { status: 429 });
@@ -104,10 +105,10 @@ export async function POST(req: NextRequest) {
         const admin = admins[0];
         
         if (!admin.is_approved) {
-          console.warn(`⚠️ Unapproved admin login attempt: ${citizenId} from ${clientIP}`);
+          console.warn(`⚠️ Unapproved admin login attempt: ${citizenId} from ${clientIP}`); 
           // ยังคงทำ bcrypt เพื่อป้องกัน timing attack
           await bcrypt.compare(password, admin.password);
-          return NextResponse.json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" }, { status: 401 });
+          return NextResponse.json({ error: "คุณยังไม่ได้รับการอนุมัติ" }, { status: 401 });// ไม่อนุญาตให้เข้าสู่ระบบถ้ายังไม่อนุมัติ
         }
         
         passwordMatch = await bcrypt.compare(password, admin.password);

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    ports:
+      - "3000:80"
+    # environment:
+    #   - NODE_ENV=production
+    #   - DB_HOST=db
+    #   - DB_PORT=3306
+    #   - DB_USER=root
+    #   - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    #   - DB_NAME=hospital_booking
+    #   # ใช้ environment variable สำหรับ ngrok URL
+    #   - NEXT_PUBLIC_APP_URL=${NGROK_URL:-https://f81d6d453ecf.ngrok-free.app}
+    #   - LINE_LOGIN_CHANNEL_ID=2007308199
+    #   - LINE_LOGIN_CHANNEL_SECRET=4731d403d2c48ea90ee4449ed3e7d086
+    #   - LINE_CHANNEL_ACCESS_TOKEN=cVuv4j9Mtwbweyp1k7QrigouTjr//y//oSw8QtDrU6xaP0LX0CX32kqLdd5TDIkmjCDTKM4t80cXAVtz4rZU9Xxz8k9sZwWDRRsB2qi434UqQmZOhHObPlSRK0KquBlWCl/l6XJ7PD2kyy5nJUweeQdB04t89/1O/w1cDnyilFU=
+    #   - LINE_CHANNEL_SECRET=f3c2dc15f522d573f059a457c6f30289
+    #   - NEXT_PUBLIC_LIFF_ID=2007308199-K3qboOWl
+    env_file:
+      - ..env.local
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    networks:
+      - app-network
+
+  # เพิ่ม ngrok service
+  ngrok:
+    image: ngrok/ngrok:3
+    restart: unless-stopped
+    command:
+      - "start"
+      - "--all"
+      - "--config"
+      - "/etc/ngrok.yml"
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+    ports:
+      - 4040:4040  # ngrok web interface
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    networks:
+      - app-network
+
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=hospitalnanana1111
+      - MYSQL_DATABASE=hospital_booking
+      # - MYSQL_USER=${MYSQL_USER}
+      # - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      # //- mysql-data:/var/lib/mysql
+      - ./src/app/db/hospital_booking.sql:/docker-entrypoint-initdb.d/hospital_booking.sql
+    # command: 
+    #   - --default-authentication-plugin=mysql_native_password
+    #   - --character-set-server=utf8mb4
+    #   - --collation-server=utf8mb4_unicode_ci
+    restart: always
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  mysql-data:
+    name: hospital-booking-data
+
+networks:
+  app-network:
+    name: hospital-booking-network
+    driver: bridge

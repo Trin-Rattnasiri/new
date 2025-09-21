@@ -1,3 +1,4 @@
+//src/lib/mysql.ts
 import mysql from 'mysql2/promise'
 
 export async function connectToDatabase() {
@@ -7,5 +8,5 @@ export async function connectToDatabase() {
     password: '',
     database: 'hospital_booking',
   })
-  return connection
+  return connection//เชื่อมต่อฐานข้อมูล MySQL
 }

@@ -8,18 +8,17 @@ export const lineConfig = {
 
 export const lineClient = new Client(lineConfig)
 
-/** โครงบัตรคิวแบบมินิมอล (ไม่มีโลโก้/QR) */
+/** โครงบัตรคิวแบบมินิมอล  */
 export type SimpleQueuePayload = {
   hospitalName: string
   department: string
   queueNo: string
-  type: string
   waitingCount: number
   date: string
   time: string
 }
 
-/** Flex Message: บัตรคิวมินิมอล */
+/** Flex Message: บัตรคิวมินิมอล (ไม่มีบรรทัด 'ประเภท') */
 export function buildSimpleQueueFlex(q: SimpleQueuePayload): FlexMessage {
   return {
     type: "flex",
@@ -38,7 +37,6 @@ export function buildSimpleQueueFlex(q: SimpleQueuePayload): FlexMessage {
           { type: "text", text: q.department, size: "sm", color: "#6B7280", align: "center", wrap: true },
           { type: "separator", margin: "md" },
           { type: "text", text: q.queueNo, weight: "bold", size: "5xl", align: "center", color: "#1D4ED8", margin: "lg" },
-          { type: "text", text: `ประเภท: ${q.type}`, size: "sm", align: "center", color: "#374151" },
           {
             type: "box",
             layout: "horizontal",

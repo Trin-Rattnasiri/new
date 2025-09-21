@@ -1,130 +1,203 @@
-import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
+// src/app/api/admin/slots/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import mysql from 'mysql2/promise'
 
-// ฟังก์ชันเชื่อมต่อฐานข้อมูล
+// ---------- DB connection ----------
 const getConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-  });
-};
+  return mysql.createConnection({
+    host: process.env.DB_HOST!,
+    user: process.env.DB_USER!,
+    password: process.env.DB_PASSWORD!,
+    database: process.env.DB_NAME!,
+  })
+}
 
-// ฟังก์ชันแปลงเวลาให้ถูกต้องเป็น HH:mm:ss
-const formatTime = (time: string): string => {
-  const parts = time.split(':');
-  const h = parts[0]?.padStart(2, '0') || '00';
-  const m = parts[1]?.padStart(2, '0') || '00';
-  return `${h}:${m}:00`;
-};
+// ---------- helpers ----------
+const formatTime = (time?: string): string => {
+  if (!time) return '00:00:00'
+  // รองรับทั้ง 'HH:mm' และ 'HH:mm:ss'
+  const [h = '00', m = '00'] = time.split(':')
+  return `${h.padStart(2, '0')}:${m.padStart(2, '0')}:00`
+}
 
-// POST - เพิ่ม slot
-export async function POST(req: Request) {
-  let connection;
+// ========== POST: create slot ==========
+export async function POST(req: NextRequest) {
+  let conn
   try {
-    const body = await req.json();
-    const { department_id, slot_date, start_time, end_time, available_seats } = body;
+    const body = await req.json()
 
-    if (!department_id || !slot_date || !start_time || !end_time || available_seats == null) {
-      return NextResponse.json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
+    // รับได้ทั้ง total_seats (ใหม่) หรือ available_seats (ของเดิม) แล้ว normalize
+    const seatsInputRaw = body.total_seats ?? body.available_seats
+    const department_id =
+      body.department_id != null ? Number(body.department_id) : null
+    const slot_date: string | null = body.slot_date ?? null
+    const start_time: string | null = body.start_time ?? null
+    const end_time: string | null = body.end_time ?? null
+    const total_seats =
+      seatsInputRaw != null ? Number(seatsInputRaw) : null
+
+    if (
+      department_id == null ||
+      !slot_date ||
+      !start_time ||
+      !end_time ||
+      total_seats == null
+    ) {
+      return NextResponse.json(
+        { message: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
+        { status: 400 },
+      )
+    }
+    if (!Number.isFinite(total_seats) || total_seats < 0) {
+      return NextResponse.json(
+        { message: 'จำนวนที่นั่งทั้งหมดต้องเป็นตัวเลขศูนย์หรือมากกว่า' },
+        { status: 400 },
+      )
     }
 
-    const formattedStart = formatTime(start_time);
-    const formattedEnd = formatTime(end_time);
+    const formattedStart = formatTime(start_time)
+    const formattedEnd = formatTime(end_time)
+    // ว่างเริ่มต้น = ทั้งหมด
+    const available_seats = total_seats
 
-    connection = await getConnection();
-    await connection.query(
-      `INSERT INTO slots (department_id, slot_date, start_time, end_time, available_seats) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [department_id, slot_date, formattedStart, formattedEnd, available_seats]
-    );
+    conn = await getConnection()
+    await conn.execute(
+      `
+      INSERT INTO slots
+        (department_id, slot_date, start_time, end_time, available_seats, total_seats)
+      VALUES
+        (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        department_id,
+        slot_date,
+        formattedStart,
+        formattedEnd,
+        available_seats,
+        total_seats,
+      ],
+    )
 
-    return NextResponse.json({ message: 'เพิ่มเวลา (slot) สำเร็จ' }, { status: 201 });
-  } catch (error) {
-    console.error('Error creating slot:', error);
-    return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการเพิ่มเวลา' }, { status: 500 });
+    return NextResponse.json({ message: 'เพิ่มเวลา (slot) สำเร็จ' }, { status: 201 })
+  } catch (err) {
+    console.error('Error creating slot:', err)
+    return NextResponse.json(
+      { message: 'เกิดข้อผิดพลาดในการเพิ่มเวลา' },
+      { status: 500 },
+    )
   } finally {
-    if (connection) await connection.end();
+    if (conn) await conn.end()
   }
 }
 
-// GET - ดึง slot ทั้งหมดพร้อมชื่อแผนก (เรียงวันจากน้อยไปมาก)
+// ========== GET: list slots (with department name) ==========
 export async function GET() {
-  let connection;
+  let conn
   try {
-    connection = await getConnection();
-    const [slots] = await connection.execute(`
-      SELECT 
+    conn = await getConnection()
+    const [rows] = await conn.execute(
+      `
+      SELECT
         s.id,
         s.slot_date,
         s.start_time,
         s.end_time,
         s.available_seats,
+        s.total_seats,
         d.name AS department_name
       FROM slots s
       JOIN departments d ON s.department_id = d.id
       ORDER BY s.slot_date ASC, s.start_time ASC
-    `);
-    return NextResponse.json({ slots }, { status: 200 });
-  } catch (error) {
-    console.error('Error fetching slots:', error);
-    return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล slot' }, { status: 500 });
+      `,
+    )
+    return NextResponse.json({ slots: rows }, { status: 200 })
+  } catch (err) {
+    console.error('Error fetching slots:', err)
+    return NextResponse.json(
+      { message: 'เกิดข้อผิดพลาดในการดึงข้อมูล slot' },
+      { status: 500 },
+    )
   } finally {
-    if (connection) await connection.end();
+    if (conn) await conn.end()
   }
 }
 
-// PUT - แก้ไข slot
+// ========== PUT: update slot ==========
+// ทำงานแบบฉลาด:
+// - ถ้ารับ total_seats ใหม่ → คำนวณ available_seats ใหม่ โดย "คงจำนวนที่จองแล้ว" เดิม
+// - ถ้าไม่ส่ง total_seats แต่ส่ง available_seats → ปรับ available โดย clamp ให้อยู่ใน 0..total เดิม
 export async function PUT(req: NextRequest) {
-  let connection;
+  let conn
   try {
-    const body = await req.json();
-    const { id, slot_date, start_time, end_time, available_seats } = body;
+    const body = await req.json()
 
-    if (!id || !slot_date || !start_time || !end_time || available_seats == null) {
-      return NextResponse.json({ message: 'กรอกข้อมูลไม่ครบ' }, { status: 400 });
+    const id = body.id != null ? Number(body.id) : null
+    const slot_date_in: string | null = body.slot_date ?? null
+    const start_time_in: string | null = body.start_time ?? null
+    const end_time_in: string | null = body.end_time ?? null
+    const total_in = body.total_seats != null ? Number(body.total_seats) : null
+    const avail_in = body.available_seats != null ? Number(body.available_seats) : null
+
+    if (id == null) {
+      return NextResponse.json({ message: 'ไม่พบ id' }, { status: 400 })
     }
 
-    const formattedStart = formatTime(start_time);
-    const formattedEnd = formatTime(end_time);
+    conn = await getConnection()
+    await conn.beginTransaction()
 
-    connection = await getConnection();
-    await connection.execute(
-      `UPDATE slots 
-       SET slot_date = ?, start_time = ?, end_time = ?, available_seats = ? 
+    const [rows]: any = await conn.execute(
+      `SELECT slot_date, start_time, end_time, total_seats, available_seats
+       FROM slots WHERE id = ? FOR UPDATE`,
+      [id],
+    )
+    if (!rows?.length) {
+      await conn.rollback()
+      return NextResponse.json({ message: 'ไม่พบ slot' }, { status: 404 })
+    }
+
+    const old = rows[0] as {
+      slot_date: string; start_time: string; end_time: string;
+      total_seats: number; available_seats: number
+    }
+
+    const new_date = slot_date_in ?? old.slot_date
+    const new_start = start_time_in ? formatTime(start_time_in) : old.start_time
+    const new_end   = end_time_in   ? formatTime(end_time_in)   : old.end_time
+
+    let new_total     = old.total_seats
+    let new_available = old.available_seats
+
+    if (total_in != null) {
+      if (!Number.isFinite(total_in) || total_in < 0) {
+        await conn.rollback()
+        return NextResponse.json({ message: 'จำนวนที่นั่งทั้งหมดต้องเป็นศูนย์หรือมากกว่า' }, { status: 400 })
+      }
+      new_total = total_in
+
+      // คงจำนวนที่จองแล้วเดิม
+      const booked = Math.max(0, Number(old.total_seats) - Number(old.available_seats))
+      new_available = Math.max(0, Math.min(new_total - booked, new_total))
+      // (ถ้าลด total จนต่ำกว่า booked ผลคือ available จะเป็น 0)
+    } else if (avail_in != null) {
+      // ไม่ได้เปลี่ยน total แต่เปลี่ยน available → ครอบช่วงด้วย total เดิม
+      new_available = Math.max(0, Math.min(avail_in, new_total))
+    }
+
+    await conn.execute(
+      `UPDATE slots
+       SET slot_date = ?, start_time = ?, end_time = ?,
+           total_seats = ?, available_seats = ?
        WHERE id = ?`,
-      [slot_date, formattedStart, formattedEnd, available_seats, id]
-    );
+      [new_date, new_start, new_end, new_total, new_available, id],
+    )
 
-    return NextResponse.json({ message: 'แก้ไขเวลาเรียบร้อย' }, { status: 200 });
-  } catch (error) {
-    console.error('Error updating slot:', error);
-    return NextResponse.json({ message: 'เกิดข้อผิดพลาด' }, { status: 500 });
+    await conn.commit()
+    return NextResponse.json({ message: 'แก้ไขเวลาเรียบร้อย' }, { status: 200 })
+  } catch (err) {
+    if (conn) await conn.rollback()
+    console.error('Error updating slot:', err)
+    return NextResponse.json({ message: 'เกิดข้อผิดพลาด' }, { status: 500 })
   } finally {
-    if (connection) await connection.end();
-  }
-}
-
-// DELETE - ลบ slot
-export async function DELETE(req: NextRequest) {
-  let connection;
-  try {
-    const { searchParams } = new URL(req.url);
-    const slotId = searchParams.get('slotId');
-
-    if (!slotId) {
-      return NextResponse.json({ message: 'ไม่พบ slotId' }, { status: 400 });
-    }
-
-    connection = await getConnection();
-    await connection.execute(`DELETE FROM slots WHERE id = ?`, [slotId]);
-
-    return NextResponse.json({ message: 'ลบ slot สำเร็จ' }, { status: 200 });
-  } catch (error) {
-    console.error('Error deleting slot:', error);
-    return NextResponse.json({ message: 'เกิดข้อผิดพลาดขณะลบ' }, { status: 500 });
-  } finally {
-    if (connection) await connection.end();
+    if (conn) await conn.end()
   }
 }
