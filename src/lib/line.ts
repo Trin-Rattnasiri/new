@@ -1,12 +1,37 @@
 // src/lib/line.ts
 import { Client, validateSignature, type FlexMessage } from "@line/bot-sdk"
 
+// Safe config with fallback values for build time
 export const lineConfig = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
-  channelSecret: process.env.LINE_CHANNEL_SECRET!,
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || 'build-time-placeholder',
+  channelSecret: process.env.LINE_CHANNEL_SECRET || 'build-time-placeholder',
 }
 
-export const lineClient = new Client(lineConfig)
+// Only create client if environment variables are properly set
+let _lineClient: Client | null = null
+
+export const getLineClient = (): Client => {
+  if (!_lineClient && process.env.LINE_CHANNEL_ACCESS_TOKEN && process.env.LINE_CHANNEL_SECRET) {
+    _lineClient = new Client({
+      channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+      channelSecret: process.env.LINE_CHANNEL_SECRET,
+    })
+  }
+  
+  if (!_lineClient) {
+    throw new Error('LINE client not initialized. Check environment variables.')
+  }
+  
+  return _lineClient
+}
+
+// Backward compatibility - lazy initialization
+export const lineClient = new Proxy({} as Client, {
+  get(target, prop) {
+    const client = getLineClient()
+    return client[prop as keyof Client]
+  }
+})
 
 /** โครงบัตรคิวแบบมินิมอล  */
 export type SimpleQueuePayload = {
