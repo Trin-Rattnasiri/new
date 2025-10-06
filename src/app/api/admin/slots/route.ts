@@ -122,10 +122,98 @@ export async function GET() {
   }
 }
 
+// ========== DELETE: delete slot ==========
+export async function DELETE(req: NextRequest) {
+  let conn
+  try {
+    const { searchParams } = new URL(req.url)
+    const slotId = searchParams.get('slotId')
+    const force = searchParams.get('force') === 'true' // เพิ่มพารามิเตอร์บังคับลบ
+
+    if (!slotId) {
+      return NextResponse.json(
+        { message: 'กรุณาระบุ slotId' },
+        { status: 400 }
+      )
+    }
+
+    const id = Number(slotId)
+    if (!Number.isFinite(id) || id <= 0) {
+      return NextResponse.json(
+        { message: 'slotId ไม่ถูกต้อง' },
+        { status: 400 }
+      )
+    }
+
+    conn = await getConnection()
+    await conn.beginTransaction()
+
+    // ตรวจสอบว่า slot มีอยู่หรือไม่
+    const [rows]: any = await conn.execute(
+      'SELECT id, available_seats, total_seats FROM slots WHERE id = ? FOR UPDATE',
+      [id]
+    )
+
+    if (!rows?.length) {
+      await conn.rollback()
+      return NextResponse.json(
+        { message: 'ไม่พบ slot ที่ต้องการลบ' },
+        { status: 404 }
+      )
+    }
+
+    const slot = rows[0]
+    const bookedSeats = slot.total_seats - slot.available_seats
+
+    // ถ้ามีคนจองแล้ว และไม่ได้บังคับลบ -> แจ้งเตือน
+    if (bookedSeats > 0 && !force) {
+      await conn.rollback()
+      return NextResponse.json(
+        { 
+          message: `มีการจองแล้ว ${bookedSeats} ที่นั่ง\nต้องการลบต่อหรือไม่?`,
+          needsConfirmation: true,
+          bookedSeats,
+          slotId: id
+        },
+        { status: 409 } // 409 Conflict
+      )
+    }
+
+    // ลบการจองที่เกี่ยวข้องก่อน (ถ้ามี)
+    if (bookedSeats > 0) {
+      await conn.execute('DELETE FROM bookings WHERE slot_id = ?', [id])
+    }
+
+    // ลบ slot
+    await conn.execute('DELETE FROM slots WHERE id = ?', [id])
+
+    await conn.commit()
+    return NextResponse.json(
+      { 
+        message: bookedSeats > 0 
+          ? `ลบเวลา (slot) สำเร็จ พร้อมยกเลิกการจอง ${bookedSeats} ที่นั่ง`
+          : 'ลบเวลา (slot) สำเร็จ',
+        success: true,
+        deletedBookings: bookedSeats
+      },
+      { status: 200 }
+    )
+
+  } catch (err) {
+    if (conn) await conn.rollback()
+    console.error('Error deleting slot:', err)
+    return NextResponse.json(
+      { message: 'เกิดข้อผิดพลาดในการลบเวลา' },
+      { status: 500 }
+    )
+  } finally {
+    if (conn) await conn.end()
+  }
+}
 // ========== PUT: update slot ==========
-// ทำงานแบบฉลาด:
-// - ถ้ารับ total_seats ใหม่ → คำนวณ available_seats ใหม่ โดย "คงจำนวนที่จองแล้ว" เดิม
-// - ถ้าไม่ส่ง total_seats แต่ส่ง available_seats → ปรับ available โดย clamp ให้อยู่ใน 0..total เดิม
+// เพิ่มโค้ดนี้ใน src/app/api/admin/slots/route.ts
+// วางหลัง DELETE method
+
 export async function PUT(req: NextRequest) {
   let conn
   try {
@@ -177,7 +265,6 @@ export async function PUT(req: NextRequest) {
       // คงจำนวนที่จองแล้วเดิม
       const booked = Math.max(0, Number(old.total_seats) - Number(old.available_seats))
       new_available = Math.max(0, Math.min(new_total - booked, new_total))
-      // (ถ้าลด total จนต่ำกว่า booked ผลคือ available จะเป็น 0)
     } else if (avail_in != null) {
       // ไม่ได้เปลี่ยน total แต่เปลี่ยน available → ครอบช่วงด้วย total เดิม
       new_available = Math.max(0, Math.min(avail_in, new_total))

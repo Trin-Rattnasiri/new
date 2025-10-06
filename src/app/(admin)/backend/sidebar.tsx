@@ -89,7 +89,7 @@ const sidebarItems: SidebarItem[] = [
       },
       {
         title: "เพิ่มเวลา",
-        path: "/backend/admin-dashboard",
+        path: "/backend/admin-schedule-manage",
         icon: <Clock size={16} />,
         // ลบ permission ออก
       },
@@ -395,13 +395,13 @@ const Sidebar = () => {
               <DropdownMenuLabel>บัญชีของฉัน</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <div className="w-4 h-4 flex items-center justify-center mr-2">
+                <div className="w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0">
                   <UserIcon className="h-4 w-4 text-blue-500" />
                 </div>
                 <span>ข้อมูลส่วนตัว</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleNotificationClick}>
-                <div className="w-4 h-4 flex items-center justify-center mr-2">
+                <div className="w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0">
                   <Bell className="h-4 w-4 text-amber-500" />
                 </div>
                 <span>การแจ้งเตือน</span>
@@ -414,7 +414,7 @@ const Sidebar = () => {
               {/* แสดงเมนูจัดการระบบแอดมินเฉพาะ SuperAdmin เท่านั้น */}
               {checkUserPermission("manage_admins") && (
                 <DropdownMenuItem onClick={() => router.push("/backend/admin-manage")}>
-                  <div className="w-4 h-4 flex items-center justify-center mr-2">
+                  <div className="w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0">
                     <ShieldCheck className="h-4 w-4 text-indigo-500" />
                   </div>
                   <span>จัดการระบบแอดมิน</span>
@@ -425,7 +425,7 @@ const Sidebar = () => {
                 onClick={handleLogoutClick} 
                 className="text-red-500 focus:text-red-500 focus:bg-red-50"
               >
-                <div className="w-4 h-4 flex items-center justify-center mr-2">
+                <div className="w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0">
                   <LogOut className="h-4 w-4" />
                 </div>
                 <span>ออกจากระบบ</span>
@@ -477,12 +477,12 @@ const Sidebar = () => {
                 }
 
                 return (
-                  <div key={`${item.title}-${index}`} className="mb-1">
+                  <div key={`${item.title}-${index}`} className="mb-1 ml-1">
                     <div>
                       <Button
                         variant="ghost"
                         className={cn(
-                          "w-full justify-between rounded-lg",
+                          "w-full justify-between rounded-lg ",
                           isActive
                             ? "bg-gradient-to-r from-blue-100 to-indigo-100 text-indigo-700"
                             : "text-slate-700 hover:bg-slate-100",
@@ -495,7 +495,7 @@ const Sidebar = () => {
                               {item.icon}
                             </div>
                           </div>
-                          <span className="ml-3 text-sm">{item.title}</span>
+                          <span className="ml-5 text-sm">{item.title}</span>
                         </div>
                         {openSubmenu === index ? (
                           <ChevronDown size={16} className="text-slate-400" />
@@ -505,7 +505,7 @@ const Sidebar = () => {
                       </Button>
 
                       {openSubmenu === index && (
-                        <div className="mt-1 ml-2 pl-6 border-l-2 border-indigo-100 space-y-1">
+                        <div className="mt-1 ml-4 pl-6 border-l-2 border-indigo-100 space-y-1">
                           {visibleSubItems.map((subItem, subIndex) => {
                             const isSubItemActive = pathname === subItem.path
                             return (
@@ -513,7 +513,7 @@ const Sidebar = () => {
                                 key={`${subItem.path}-${subIndex}`}
                                 href={subItem.path}
                                 className={cn(
-                                  "flex items-center px-3 py-2 text-sm rounded-lg",
+                                  "flex items-center px-3 py-2 text-sm rounded-lg  ",
                                   isSubItemActive
                                     ? "bg-indigo-100 text-indigo-700"
                                     : "text-slate-600 hover:bg-slate-100",

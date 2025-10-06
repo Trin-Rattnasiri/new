@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea" // เพิ่มนี้
+import { Label } from "@/components/ui/label" // เพิ่มนี้
 import {
   Dialog,
   DialogContent,
@@ -43,6 +45,7 @@ import {
   IdCard,
   Edit,
   ChevronDown,
+  MessageSquare, // เพิ่มนี้
 } from "lucide-react"
 
 import { Toaster, toast } from "sonner"
@@ -60,6 +63,7 @@ interface Booking {
   department_name: string
   status: string
   cancelled_by?: string
+  cancellation_reason?: string // เพิ่มนี้
 }
 
 interface Slot {
@@ -90,7 +94,6 @@ const STATUS_ICONS = {
   cancelled: XCircle,
 }
 
-// NEW: helper ตรวจสถานะซ้ำ
 const isSameStatus = (b?: Booking | null, next?: string | null) =>
   !!b && !!next && b.status === next
 
@@ -107,6 +110,7 @@ export default function AdminBookingsPage() {
     { value: "today", label: "วันนี้" },
     { value: "week", label: "สัปดาห์นี้" },
   ]
+
   const [bookings, setBookings] = useState<Booking[]>([])
   const [slots, setSlots] = useState<Slot[]>([])
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([])
@@ -124,10 +128,14 @@ export default function AdminBookingsPage() {
   const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("bookings")
-  
-
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
 
+  // เพิ่ม state สำหรับ cancellation reason
+  const [cancellationReason, setCancellationReason] = useState('')
+  const [deletionReason, setDeletionReason] = useState('')
+  const [reasonRequired, setReasonRequired] = useState(false)
+
+  const router = useRouter()
   const fetchDepartments = async () => {
     try {
       const res = await fetch("/api/admin/departments")
@@ -173,7 +181,6 @@ export default function AdminBookingsPage() {
     } finally {
       setLoading(false)
       setRefreshing(false)
-
     }
   }
 
@@ -210,13 +217,10 @@ export default function AdminBookingsPage() {
   })
 
   const sortedSlotList = [...slots].sort((a, b) => new Date(a.slot_date).getTime() - new Date(b.slot_date).getTime())
-  const router = useRouter()
-
 
   const confirmStatusChange = async () => {
     if (!selectedBookingId || !selectedStatus) return
 
-    // NEW: กันอัปเดตซ้ำสถานะเดิม
     if (isSameStatus(selectedBooking, selectedStatus)) {
       toast.info("สถานะนี้ถูกตั้งไว้แล้ว")
       setOpenConfirmModal(false)
@@ -252,8 +256,15 @@ export default function AdminBookingsPage() {
     }
   }
 
+  // ปรับปรุง cancelBooking function
   const cancelBooking = async () => {
     if (!selectedBookingRef) return
+
+    // ตรวจสอบเหตุผล
+    if (!cancellationReason.trim()) {
+      setReasonRequired(true)
+      return
+    }
 
     try {
       setRefreshing(true)
@@ -263,6 +274,7 @@ export default function AdminBookingsPage() {
         body: JSON.stringify({
           status: "cancelled",
           cancelledBy: "admin",
+          cancellation_reason: cancellationReason.trim(),
         }),
       })
 
@@ -270,7 +282,7 @@ export default function AdminBookingsPage() {
         setBookings((prev) =>
           prev.map((b) =>
             b.booking_reference_number === selectedBookingRef
-              ? { ...b, status: "cancelled", cancelled_by: "admin" }
+              ? { ...b, status: "cancelled", cancelled_by: "admin", cancellation_reason: cancellationReason.trim() }
               : b,
           ),
         )
@@ -286,17 +298,30 @@ export default function AdminBookingsPage() {
       setSelectedBookingRef(null)
       setSelectedBookingId(null)
       setSelectedBooking(null)
+      setCancellationReason('')
+      setReasonRequired(false)
       setRefreshing(false)
     }
   }
 
+  // ปรับปรุง deleteConfirmed function
   const deleteConfirmed = async () => {
     if (!selectedBookingId) return
+
+    // ตรวจสอบเหตุผล
+    if (!deletionReason.trim()) {
+      setReasonRequired(true)
+      return
+    }
 
     try {
       setRefreshing(true)
       const res = await fetch(`/api/admin/appointment?bookingId=${selectedBookingId}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deletionReason: deletionReason.trim(), // ส่งเหตุผลการลบไปด้วย
+        }),
       })
 
       if (res.ok) {
@@ -312,6 +337,8 @@ export default function AdminBookingsPage() {
       setOpenDeleteModal(false)
       setSelectedBookingId(null)
       setSelectedBooking(null)
+      setDeletionReason('')
+      setReasonRequired(false)
       setRefreshing(false)
     }
   }
@@ -339,9 +366,25 @@ export default function AdminBookingsPage() {
     return STATUS_LABELS[booking.status] || "ไม่ทราบสถานะ"
   }
 
-  // NEW: ใช้ในโมดอลยืนยัน เพื่อปิดปุ่มถ้าสถานะซ้ำ
   const sameStatus = isSameStatus(selectedBooking, selectedStatus)
 
+  // Helper functions สำหรับจัดการ modal
+  const handleReasonChange = (value: string, type: 'cancel' | 'delete') => {
+    if (type === 'cancel') {
+      setCancellationReason(value)
+    } else {
+      setDeletionReason(value)
+    }
+    if (value.trim()) {
+      setReasonRequired(false)
+    }
+  }
+
+  const resetModal = () => {
+    setCancellationReason('')
+    setDeletionReason('')
+    setReasonRequired(false)
+  }
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -385,7 +428,6 @@ export default function AdminBookingsPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* แถวที่ 1 */}
           <Card className="bg-white shadow rounded-xl w-full">
             <CardContent className="p-3">
               <div className="flex justify-between items-center">
@@ -410,10 +452,7 @@ export default function AdminBookingsPage() {
             </CardContent>
           </Card>
 
-          {/* แถวที่ 2 */}
-          <Card
-            className="bg-white shadow rounded-xl w-full hover:shadow-md cursor-pointer transition-all duration-200"
-          >
+          <Card className="bg-white shadow rounded-xl w-full hover:shadow-md cursor-pointer transition-all duration-200">
             <CardContent className="p-3">
               <div className="flex justify-between items-center">
                 <div>
@@ -447,7 +486,6 @@ export default function AdminBookingsPage() {
               <CalendarIcon className="mr-2 h-4 w-4" /> ตารางเวลา
             </TabsTrigger>
           </TabsList>
-
           <TabsContent value="bookings">
             <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader>
@@ -520,17 +558,24 @@ export default function AdminBookingsPage() {
                       <TableBody>
                         {filteredBookings.map((b) => {
                           const StatusIcon = STATUS_ICONS[b.status as keyof typeof STATUS_ICONS] || AlertCircle
-
-                          // NEW: ปุ่มยืนยันปิดถ้าสถานะเป็น confirmed แล้ว
                           const confirmDisabled = isSameStatus(b, "confirmed")
 
                           return (
                             <TableRow key={b.id}>
                               <TableCell>
-                                <Badge className={STATUS_COLORS[b.status]}>
-                                  <StatusIcon className="mr-1 h-4 w-4 inline-block" />
-                                  {getStatusLabel(b)}
-                                </Badge>
+                                <div className="space-y-1">
+                                  <Badge className={STATUS_COLORS[b.status]}>
+                                    <StatusIcon className="mr-1 h-4 w-4 inline-block" />
+                                    {getStatusLabel(b)}
+                                  </Badge>
+                                  {/* แสดงเหตุผลการยกเลิกถ้ามี */}
+                                  {b.status === "cancelled" && b.cancellation_reason && (
+                                    <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1 mt-1">
+                                      <MessageSquare className="inline h-3 w-3 mr-1" />
+                                      เหตุผล: {b.cancellation_reason}
+                                    </div>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="font-medium">{b.department_name}</TableCell>
                               <TableCell>
@@ -566,28 +611,22 @@ export default function AdminBookingsPage() {
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 justify-end">
-                                  {/* ปุ่มยืนยัน */}
-                                  <Button
-                                    size="sm"
-                                    disabled={confirmDisabled}
-                                    className={
-                                      confirmDisabled
-                                        ? "px-4 bg-gray-200 text-gray-500 cursor-not-allowed hover:bg-gray-200"
-                                        : "px-4 bg-green-600 text-white hover:bg-green-700"
-                                    }
-                                    onClick={() => {
-                                      if (confirmDisabled) return
-                                      setSelectedBookingId(b.id)
-                                      setSelectedBooking(b)
-                                      setSelectedStatus("confirmed")
-                                      setOpenConfirmModal(true)
-                                    }}
-                                  >
-                                    <CheckCircle className="mr-1 h-4 w-4" />
-                                    {confirmDisabled ? "ยืนยันแล้ว" : "ยืนยัน"}
-                                  </Button>
-
-                                  {/* ปุ่มแก้ไข - Dropdown Menu */}
+                                  {/* แสดงปุ่มยืนยันเฉพาะสถานะที่ไม่ใช่ cancelled */}
+                                  {b.status === "pending" && (
+                                    <Button
+                                      size="sm"
+                                      className="px-4 bg-green-600 text-white hover:bg-green-700"
+                                      onClick={() => {
+                                        setSelectedBookingId(b.id)
+                                        setSelectedBooking(b)
+                                        setSelectedStatus("confirmed")
+                                        setOpenConfirmModal(true)
+                                      }}
+                                    >
+                                      <CheckCircle className="mr-1 h-4 w-4" />
+                                      ยืนยัน
+                                    </Button>
+                                  )}
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button
@@ -608,7 +647,28 @@ export default function AdminBookingsPage() {
                dark:from-slate-900 dark:via-slate-900/90 dark:to-slate-800
                border-slate-200/60 dark:border-slate-700"
                                     >
-                                      {/* รอดำเนินการ */}
+                                      {/* แสดงตัวเลือกยืนยันเฉพาะเมื่อสถานะเป็น cancelled */}
+                                      {b.status === "cancelled" && (
+                                        <DropdownMenuItem
+                                          disabled={isSameStatus(b, "confirmed")}
+                                          onSelect={() => {
+                                            if (isSameStatus(b, "confirmed")) return
+                                            setSelectedBookingId(b.id)
+                                            setSelectedBooking(b)
+                                            setSelectedStatus("confirmed")
+                                            setOpenCancelModal(false)
+                                            setOpenDeleteModal(false)
+                                            requestAnimationFrame(() => setOpenConfirmModal(true))
+                                          }}
+                                          className="rounded-md cursor-pointer hover:bg-green-50 focus:bg-green-50"
+                                        >
+                                          <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                                          <span className="text-green-700 font-medium">
+                                            ยืนยันนัด{isSameStatus(b, "confirmed") ? " (สถานะปัจจุบัน)" : ""}
+                                          </span>
+                                        </DropdownMenuItem>
+                                      )}
+
                                       <DropdownMenuItem
                                         disabled={isSameStatus(b, "pending")}
                                         onSelect={() => {
@@ -628,7 +688,6 @@ export default function AdminBookingsPage() {
                                         </span>
                                       </DropdownMenuItem>
 
-                                      {/* ยกเลิกนัด */}
                                       <DropdownMenuItem
                                         disabled={isSameStatus(b, "cancelled")}
                                         onSelect={() => {
@@ -638,6 +697,7 @@ export default function AdminBookingsPage() {
                                           setSelectedBookingRef(b.booking_reference_number)
                                           setOpenConfirmModal(false)
                                           setOpenDeleteModal(false)
+                                          resetModal()
                                           requestAnimationFrame(() => setOpenCancelModal(true))
                                         }}
                                         className="rounded-md cursor-pointer hover:bg-orange-50 focus:bg-orange-50"
@@ -648,13 +708,13 @@ export default function AdminBookingsPage() {
                                         </span>
                                       </DropdownMenuItem>
 
-                                      {/* ลบนัด */}
                                       <DropdownMenuItem
                                         onSelect={() => {
                                           setSelectedBookingId(b.id)
                                           setSelectedBooking(b)
                                           setOpenConfirmModal(false)
                                           setOpenCancelModal(false)
+                                          resetModal()
                                           requestAnimationFrame(() => setOpenDeleteModal(true))
                                         }}
                                         className="rounded-md cursor-pointer hover:bg-red-50 focus:bg-red-50"
@@ -699,7 +759,7 @@ export default function AdminBookingsPage() {
                           <TableHead>วันที่</TableHead>
                           <TableHead>เวลา</TableHead>
                           <TableHead>จำนวนที่นั่งว่าง</TableHead>
-                          <TableHead>จำนวนที่นั่งทั้งหมด</TableHead>
+                          <TableHead>จำนวนที่เปิดจองทั้งหมด</TableHead>
                           <TableHead>สถานะ</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -758,15 +818,14 @@ export default function AdminBookingsPage() {
                                   <span className="text-gray-500">
                                     (จองแล้ว{" "}
                                     <span
-                                      className={`font-medium ${
-                                        bookedSeats === 0
-                                          ? "text-green-600"
-                                          : bookedSeats >= slot.total_seats * 0.8
+                                      className={`font-medium ${bookedSeats === 0
+                                        ? "text-green-600"
+                                        : bookedSeats >= slot.total_seats * 0.8
                                           ? "text-red-600"
                                           : bookedSeats >= slot.total_seats * 0.5
-                                          ? "text-orange-600"
-                                          : "text-yellow-600"
-                                      }`}
+                                            ? "text-orange-600"
+                                            : "text-yellow-600"
+                                        }`}
                                     >
                                       {bookedSeats}
                                     </span>{" "}
@@ -787,9 +846,116 @@ export default function AdminBookingsPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Modal ยืนยันการลบนัดหมาย */}
+        {/* Modal ยกเลิกนัดหมาย (พร้อมช่องใส่เหตุผล) */}
+        <Dialog open={openCancelModal} onOpenChange={setOpenCancelModal}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-orange-600 flex items-center">
+                <XCircle className="mr-2 h-5 w-5" />
+                ยืนยันการยกเลิกนัดหมาย
+              </DialogTitle>
+              <DialogDescription className="text-gray-600 mt-2">
+                คุณต้องการยกเลิกการนัดหมายนี้ใช่หรือไม่? สถานะจะเปลี่ยนเป็น "ยกเลิกแล้ว"
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedBooking && (
+              <div className="bg-gray-50 rounded-lg p-4 my-4 space-y-3">
+                <h4 className="font-semibold text-gray-800 mb-3">ข้อมูลการนัดหมาย</h4>
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  <div className="flex items-center">
+                    <UserIcon className="mr-2 h-4 w-4 text-gray-500" />
+                    <span className="font-medium">ชื่อ:</span>
+                    <span className="ml-2">{selectedBooking.user_name}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <PhoneIcon className="mr-2 h-4 w-4 text-gray-500" />
+                    <span className="font-medium">เบอร์โทร:</span>
+                    <span className="ml-2">{selectedBooking.phone_number}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <IdCard className="mr-2 h-4 w-4 text-gray-500" />
+                    <span className="font-medium">HN:</span>
+                    <span className="ml-2">{selectedBooking.hn}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
+                    <span className="font-medium">วันที่:</span>
+                    <span className="ml-2">{format(new Date(selectedBooking.slot_date), "dd/MM/yyyy")}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <ClockIcon className="mr-2 h-4 w-4 text-gray-500" />
+                    <span className="font-medium">เวลา:</span>
+                    <span className="ml-2">{selectedBooking.start_time} - {selectedBooking.end_time}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="h-4 w-4 text-orange-500" />
+                <Label htmlFor="cancellation-reason" className="text-sm font-medium text-gray-700">
+                  เหตุผลการยกเลิก <span className="text-red-500">*</span>
+                </Label>
+              </div>
+
+              <Textarea
+                id="cancellation-reason"
+                placeholder="กรุณาระบุเหตุผลการยกเลิกนัดหมาย เช่น ผู้ป่วยติดธุระเร่งด่วน, เปลี่ยนแผนการรักษา, เหตุฉุกเฉิน ฯลฯ"
+                value={cancellationReason}
+                onChange={(e) => handleReasonChange(e.target.value, 'cancel')}
+                className={`min-h-[100px] resize-none ${reasonRequired
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                  }`}
+                rows={4}
+              />
+
+              {reasonRequired && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <span className="mr-1">⚠️</span>
+                  กรุณากรอกเหตุผลการยกเลิกก่อนดำเนินการ
+                </p>
+              )}
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-yellow-800 text-xs flex items-start">
+                  <span className="mr-2 text-yellow-600">💡</span>
+                  <span>
+                    <strong>หมายเหตุ:</strong> เหตุผลการยกเลิกจะถูกบันทึกในระบบเพื่อการตรวจสอบและสถิติ
+                    การยกเลิกนัดหมายในภายหลัง
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 pt-4">
+              <Button
+                onClick={() => {
+                  setOpenCancelModal(false)
+                  resetModal()
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                ยกเลิกการทำรายการ
+              </Button>
+              <Button
+                onClick={cancelBooking}
+                className="bg-orange-600 text-white hover:bg-orange-700 flex-1"
+                disabled={refreshing}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                {refreshing ? "กำลังประมวลผล..." : "ยืนยันการยกเลิก"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal ลบนัดหมาย (พร้อมช่องใส่เหตุผล) */}
         <Dialog open={openDeleteModal} onOpenChange={setOpenDeleteModal}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-red-600 flex items-center">
                 <Trash2 className="mr-2 h-5 w-5" />
@@ -838,76 +1004,62 @@ export default function AdminBookingsPage() {
               </div>
             )}
 
-            <DialogFooter>
-              <Button onClick={() => setOpenDeleteModal(false)} variant="outline">
-                ยกเลิกการทำรายการ
-              </Button>
-              <Button onClick={deleteConfirmed} className="bg-red-600 text-white hover:bg-red-700">
-                <Trash2 className="mr-2 h-4 w-4" />
-                ยืนยันการลบนัดหมาย
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Modal ยืนยันการยกเลิกนัดหมาย (ไม่ลบออกจากระบบ) */}
-        <Dialog open={openCancelModal} onOpenChange={setOpenCancelModal}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-amber-600 flex items-center">
-                <XCircle className="mr-2 h-5 w-5" />
-                ยืนยันการยกเลิกนัดหมาย
-              </DialogTitle>
-              <DialogDescription className="text-gray-600 mt-2">
-                คุณต้องการยกเลิกนัดหมายนี้ใช่หรือไม่? นัดหมายจะยังคงอยู่ในระบบแต่จะถูกทำเครื่องหมายว่ายกเลิกโดยแอดมิน
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedBooking && (
-              <div className="bg-gray-50 rounded-lg p-4 my-4 space-y-3">
-                <h4 className="font-semibold text-gray-800 mb-3">ข้อมูลการนัดหมาย</h4>
-                <div className="grid grid-cols-1 gap-2 text-sm">
-                  <div className="flex items-center">
-                    <UserIcon className="mr-2 h-4 w-4 text-gray-500" />
-                    <span className="font-medium">ชื่อ:</span>
-                    <span className="ml-2">{selectedBooking.user_name}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <PhoneIcon className="mr-2 h-4 w-4 text-gray-500" />
-                    <span className="font-medium">เบอร์โทร:</span>
-                    <span className="ml-2">{selectedBooking.phone_number}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <IdCard className="mr-2 h-4 w-4 text-gray-500" />
-                    <span className="font-medium">HN:</span>
-                    <span className="ml-2">{selectedBooking.hn}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
-                    <span className="font-medium">วันที่:</span>
-                    <span className="ml-2">{format(new Date(selectedBooking.slot_date), "dd/MM/yyyy")}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <ClockIcon className="mr-2 h-4 w-4 text-gray-500" />
-                    <span className="font-medium">เวลา:</span>
-                    <span className="ml-2">{selectedBooking.start_time} - {selectedBooking.end_time}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <HashIcon className="mr-2 h-4 w-4 text-gray-500" />
-                    <span className="font-medium">รหัสอ้างอิง:</span>
-                    <span className="ml-2">{selectedBooking.booking_reference_number}</span>
-                  </div>
-                </div>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="h-4 w-4 text-red-500" />
+                <Label htmlFor="deletion-reason" className="text-sm font-medium text-gray-700">
+                  เหตุผลการลบ <span className="text-red-500">*</span>
+                </Label>
               </div>
-            )}
 
-            <DialogFooter>
-              <Button onClick={() => setOpenCancelModal(false)} variant="outline">
+              <Textarea
+                id="deletion-reason"
+                placeholder="กรุณาระบุเหตุผลการลบนัดหมาย เช่น ข้อมูลผิดพลาด, นัดหมายซ้ำ, คำขอจากผู้ป่วย ฯลฯ"
+                value={deletionReason}
+                onChange={(e) => handleReasonChange(e.target.value, 'delete')}
+                className={`min-h-[100px] resize-none ${reasonRequired
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                  }`}
+                rows={4}
+              />
+
+              {reasonRequired && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <span className="mr-1">⚠️</span>
+                  กรุณากรอกเหตุผลการลบก่อนดำเนินการ
+                </p>
+              )}
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-800 text-xs flex items-start">
+                  <span className="mr-2 text-red-600">⚠️</span>
+                  <span>
+                    <strong>คำเตือน:</strong> การลบนัดหมายจะทำให้ข้อมูลหายไปถาวร
+                    และไม่สามารถกู้คืนได้ เหตุผลการลบจะถูกบันทึกในระบบ
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 pt-4">
+              <Button
+                onClick={() => {
+                  setOpenDeleteModal(false)
+                  resetModal()
+                }}
+                variant="outline"
+                className="flex-1"
+              >
                 ยกเลิกการทำรายการ
               </Button>
-              <Button onClick={cancelBooking} className="bg-amber-600 text-white hover:bg-amber-700">
-                <XCircle className="mr-2 h-4 w-4" />
-                ยืนยันการยกเลิกนัดหมาย
+              <Button
+                onClick={deleteConfirmed}
+                className="bg-red-600 text-white hover:bg-red-700 flex-1"
+                disabled={refreshing}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {refreshing ? "กำลังลบ..." : "ยืนยันการลบ"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -986,7 +1138,7 @@ export default function AdminBookingsPage() {
                     : "bg-green-600 text-white hover:bg-green-700"
                 }
               >
-                ยืนยันการเปลี่ยนสถานะ
+                {refreshing ? "กำลังประมวลผล..." : "ยืนยันการเปลี่ยนสถานะ"}
               </Button>
             </DialogFooter>
           </DialogContent>

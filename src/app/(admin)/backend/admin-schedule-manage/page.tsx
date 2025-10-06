@@ -58,21 +58,30 @@ const AdminDashboard = () => {
   const [slotDate, setSlotDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [totalSeats, setTotalSeats] = useState<number>(0); // <<— ช่องเดียวสำหรับใส่จำนวนที่เปิดให้จอง
+  const [totalSeats, setTotalSeats] = useState<number>(0);
 
   const [openConfirmModal, setOpenConfirmModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  
+  // ⭐ เพิ่ม State สำหรับ Modal ยืนยันการลบแบบมีการจอง
+  const [openForceDeleteModal, setOpenForceDeleteModal] = useState(false);
+  const [deleteSlotInfo, setDeleteSlotInfo] = useState<{
+    slotId: number;
+    bookedSeats: number;
+    slotData: Slot | null;
+  } | null>(null);
 
   const [editSlot, setEditSlot] = useState<Slot | null>(null);
   const [deleteSlotId, setDeleteSlotId] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // state & refs สำหรับ dropdown ปฏิทินใน "แก้ไข"
   const [editDateOpen, setEditDateOpen] = useState(false);
   const editDateWrapRef = useRef<HTMLDivElement>(null);
   const bookedRef = useRef<number>(0);
+
+// ... ต่อจาก Part 1
 
   useEffect(() => {
     const fetchData = async () => {
@@ -97,7 +106,6 @@ const AdminDashboard = () => {
     fetchData();
   }, []);
 
-  // ปิด dropdown เมื่อคลิกข้างนอก
   useEffect(() => {
     if (!editDateOpen) return;
     const onDown = (ev: MouseEvent) => {
@@ -148,7 +156,6 @@ const AdminDashboard = () => {
 
     setActionLoading(true);
     try {
-      // ส่ง total_seats อย่างเดียว (API จะตั้ง available_seats = total_seats ให้เอง)
       const res = await fetch('/api/admin/slots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,31 +188,108 @@ const AdminDashboard = () => {
     setSelectedDepartment(''); setSlotDate(''); setStartTime(''); setEndTime('');
     setTotalSeats(0); setFormError(null);
   };
+  // ... ต่อจาก Part 2
 
+  // ⭐ ฟังก์ชัน handleDelete แบบใหม่ (มี Modal ยืนยัน)
   const handleDelete = async () => {
     if (!deleteSlotId) return;
 
     setActionLoading(true);
     try {
       const slotToDelete = slotList.find(slot => slot.id === deleteSlotId);
-      const res = await fetch(`/api/admin/slots?slotId=${deleteSlotId}`, { method: 'DELETE' });
+      
+      // ขั้นตอนที่ 1: ลองลบครั้งแรก (ตรวจสอบ)
+      const res = await fetch(`/api/admin/slots?slotId=${deleteSlotId}`, { 
+        method: 'DELETE' 
+      });
+      const data = await res.json();
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || 'Failed to delete slot');
+      // ถ้า status 409 = มีคนจองแล้ว ต้องยืนยัน
+      if (res.status === 409 && data.needsConfirmation) {
+        setOpenDeleteModal(false); // ปิด modal เดิมก่อน
+        
+        // เก็บข้อมูลและเปิด Modal ยืนยัน
+        setDeleteSlotInfo({
+          slotId: deleteSlotId,
+          bookedSeats: data.bookedSeats,
+          slotData: slotToDelete || null
+        });
+        setOpenForceDeleteModal(true);
+        setActionLoading(false);
+        return;
       }
 
-      setOpenDeleteModal(false);
-      setDeleteSlotId(null);
-      fetchSlots();
+      // กรณีลบสำเร็จทันที (ไม่มีคนจอง)
+      if (res.ok) {
+        setOpenDeleteModal(false);
+        setDeleteSlotId(null);
+        fetchSlots();
 
-      if (slotToDelete) {
-        toast.success(`ลบตารางเวลา "${slotToDelete.department_name}" วันที่ ${toDate(slotToDelete.slot_date) ? format(toDate(slotToDelete.slot_date)!, 'dd/MM/yyyy') : '-'} แล้ว`);
-      } else {
-        toast.success('ลบตารางเวลาเรียบร้อยแล้ว');
+        if (slotToDelete) {
+          toast.success(
+            `ลบตารางเวลา "${slotToDelete.department_name}" วันที่ ${
+              toDate(slotToDelete.slot_date) 
+                ? format(toDate(slotToDelete.slot_date)!, 'dd/MM/yyyy') 
+                : '-'
+            } แล้ว`
+          );
+        } else {
+          toast.success('ลบตารางเวลาเรียบร้อยแล้ว');
+        }
+        return;
       }
+
+      // กรณี error อื่นๆ
+      throw new Error(data.message || 'Failed to delete slot');
+
     } catch (e) {
       console.error('Error deleting slot:', e);
+      toast.error(e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการลบข้อมูล');
+      setOpenDeleteModal(false);
+      setDeleteSlotId(null);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ⭐ ฟังก์ชันใหม่: ยืนยันลบแบบบังคับ (force delete)
+  const handleForceDelete = async () => {
+    if (!deleteSlotInfo) return;
+
+    setActionLoading(true);
+    try {
+      // ขั้นตอนที่ 2: ลบแบบบังคับ (force=true)
+      const forceRes = await fetch(
+        `/api/admin/slots?slotId=${deleteSlotInfo.slotId}&force=true`,
+        { method: 'DELETE' }
+      );
+      
+      if (!forceRes.ok) {
+        const forceData = await forceRes.json();
+        throw new Error(forceData.message || 'Failed to force delete slot');
+      }
+      
+      const forceData = await forceRes.json();
+      
+      setOpenForceDeleteModal(false);
+      setDeleteSlotId(null);
+      setDeleteSlotInfo(null);
+      fetchSlots();
+      
+      if (deleteSlotInfo.slotData) {
+        toast.success(
+          `ลบตารางเวลา "${deleteSlotInfo.slotData.department_name}" วันที่ ${
+            toDate(deleteSlotInfo.slotData.slot_date) 
+              ? format(toDate(deleteSlotInfo.slotData.slot_date)!, 'dd/MM/yyyy') 
+              : '-'
+          } และยกเลิกการจอง ${forceData.deletedBookings} รายการแล้ว`
+        );
+      } else {
+        toast.success(forceData.message);
+      }
+
+    } catch (e) {
+      console.error('Error force deleting slot:', e);
       toast.error(e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการลบข้อมูล');
     } finally {
       setActionLoading(false);
@@ -214,10 +298,10 @@ const AdminDashboard = () => {
 
   const handleEdit = (slot: Slot) => {
     const d = toDate(slot.slot_date);
-bookedRef.current = Math.max(0, slot.total_seats - slot.available_seats); // จองแล้วเดิม
-setEditSlot({ ...slot, slot_date: d ? format(d, 'yyyy-MM-dd') : '' });
-setOpenEditModal(true);
-setEditDateOpen(false);
+    bookedRef.current = Math.max(0, slot.total_seats - slot.available_seats);
+    setEditSlot({ ...slot, slot_date: d ? format(d, 'yyyy-MM-dd') : '' });
+    setOpenEditModal(true);
+    setEditDateOpen(false);
   };
 
   const handleUpdateSlot = async () => {
@@ -228,7 +312,7 @@ setEditDateOpen(false);
       const res = await fetch('/api/admin/slots', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editSlot), // รวม total_seats/available_seats ที่คำนวณแล้ว
+        body: JSON.stringify(editSlot),
       });
 
       if (!res.ok) {
@@ -251,11 +335,13 @@ setEditDateOpen(false);
     filterDepartment === ALL
       ? slotList
       : slotList.filter((slot) => {
-          const id = Number(filterDepartment);
-          if (!Number.isFinite(id)) return true;
-          const dept = departmentList.find(d => d.id === id);
-          return slot.department_name === (dept?.name || '');
-        });
+        const id = Number(filterDepartment);
+        if (!Number.isFinite(id)) return true;
+        const dept = departmentList.find(d => d.id === id);
+        return slot.department_name === (dept?.name || '');
+      });
+
+      // ... ต่อจาก Part 3
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
@@ -316,8 +402,6 @@ setEditDateOpen(false);
                         setSlotDate(format(date, 'yyyy-MM-dd'))
                       }}
                       initialFocus
-                   
-
                     />
                   </PopoverContent>
                 </Popover>
@@ -391,8 +475,8 @@ setEditDateOpen(false);
                       <TableHead className="font-semibold">วันที่</TableHead>
                       <TableHead className="font-semibold">แผนก</TableHead>
                       <TableHead className="font-semibold">เวลา</TableHead>
-                      <TableHead className="font-semibold text-center">จำนวนว่าง / ทั้งหมด(ที่นั่ง)</TableHead>
-                      <TableHead className="font-semibold text-right">การจัดการ</TableHead>
+                      <TableHead className="font-semibold text-center">จำนวนว่าง / ทั้งหมด</TableHead>
+                      <TableHead className="font-semibold text-right">การดำเนินการ</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -406,23 +490,23 @@ setEditDateOpen(false);
                           </span>
                         </TableCell>
                         <TableCell className="text-center">
-  <Badge variant={slot.available_seats > 0 ? "outline" : "secondary"} className="px-2">
-    {slot.available_seats}/{slot.total_seats}
-  </Badge>
-</TableCell>
+                          <Badge variant={slot.available_seats > 0 ? "outline" : "secondary"} className="px-2">
+                            {slot.available_seats}/{slot.total_seats}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
-                              size="sm" 
-                              variant="outline" 
+                              size="sm"
+                              variant="outline"
                               className="h-8 px-2 flex items-center gap-1 bg-yellow-400 text-black hover:bg-yellow-500 border-yellow-400"
                               onClick={() => handleEdit(slot)}
                             >
                               <Edit size={14} /> แก้ไข
                             </Button>
                             <Button
-                              size="sm" 
-                              variant="destructive" 
+                              size="sm"
+                              variant="destructive"
                               className="h-8 px-2 flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white"
                               onClick={() => { setDeleteSlotId(slot.id); setOpenDeleteModal(true); }}
                             >
@@ -438,6 +522,10 @@ setEditDateOpen(false);
             )}
           </CardContent>
         </Card>
+
+        {/* โค้ดส่วน Modals จะอยู่ในข้อความถัดไป เพราะยาวเกินไป */}
+      </div>
+      {/* วางโค้ดนี้ก่อน </div> สุดท้ายของ component (ก่อน </div> ที่ปิด max-w-7xl) */}
 
         {/* Modal เพิ่ม */}
         <Dialog open={openConfirmModal} onOpenChange={setOpenConfirmModal}>
@@ -462,8 +550,8 @@ setEditDateOpen(false);
               <Button variant="outline" onClick={() => setOpenConfirmModal(false)} disabled={actionLoading}>
                 ยกเลิก
               </Button>
-              <Button 
-                onClick={handleAddSlot} 
+              <Button
+                onClick={handleAddSlot}
                 disabled={actionLoading}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
@@ -482,7 +570,6 @@ setEditDateOpen(false);
 
             {editSlot && (
               <div className="space-y-4">
-                {/* ฟิลด์วันที่: Input + dropdown calendar (custom) */}
                 <div className="mb-2" ref={editDateWrapRef}>
                   <Label className="mb-1 block">วันที่:</Label>
                   <div className="relative">
@@ -537,21 +624,21 @@ setEditDateOpen(false);
                   <Label className="mb-1 block">จำนวนที่นั่ง:</Label>
                   <Input type="number" min="0" value={editSlot.total_seats}
                     onChange={(e) => setEditSlot(prev => prev ? ({ ...prev, total_seats: Number(e.target.value || 0) }) : prev)} />
-                    <p className="mt-1 text-xs text-gray-600">
-        จำนวนที่จองแล้วคงเดิม: <strong>{bookedRef.current}</strong> คน
-      </p>
-      <p className="mt-1 text-xs">
-        จำนวนว่างหลังบันทึก (พรีวิว):{" "}
-        <strong>{
-          Math.max(
-            0,
-            Math.min(
-              (editSlot.total_seats ?? 0) - bookedRef.current,
-              (editSlot.total_seats ?? 0)
-            )
-          )
-        }</strong>
-      </p>
+                  <p className="mt-1 text-xs text-gray-600">
+                    จำนวนที่จองแล้วคงเดิม: <strong>{bookedRef.current}</strong> คน
+                  </p>
+                  <p className="mt-1 text-xs">
+                    จำนวนว่างหลังบันทึก (พรีวิว):{" "}
+                    <strong>{
+                      Math.max(
+                        0,
+                        Math.min(
+                          (editSlot.total_seats ?? 0) - bookedRef.current,
+                          (editSlot.total_seats ?? 0)
+                        )
+                      )
+                    }</strong>
+                  </p>
                 </div>
               </div>
             )}
@@ -560,8 +647,8 @@ setEditDateOpen(false);
               <Button variant="outline" onClick={() => setOpenEditModal(false)} disabled={actionLoading}>
                 ยกเลิก
               </Button>
-              <Button 
-                onClick={handleUpdateSlot} 
+              <Button
+                onClick={handleUpdateSlot}
                 disabled={actionLoading}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
@@ -571,7 +658,7 @@ setEditDateOpen(false);
           </DialogContent>
         </Dialog>
 
-        {/* Modal ลบ */}
+        {/* Modal ลบ (ปกติ) */}
         <AlertDialog open={openDeleteModal} onOpenChange={setOpenDeleteModal}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -580,8 +667,8 @@ setEditDateOpen(false);
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={actionLoading}>ยกเลิก</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleDelete} 
+              <AlertDialogAction
+                onClick={handleDelete}
                 disabled={actionLoading}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
@@ -590,7 +677,77 @@ setEditDateOpen(false);
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
+
+        {/* ⭐ Modal ยืนยันการลบแบบมีการจอง (ใหม่!) */}
+        <AlertDialog open={openForceDeleteModal} onOpenChange={setOpenForceDeleteModal}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl text-orange-600 flex items-center gap-2">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
+                  />
+                </svg>
+                คำเตือน: มีการจองแล้ว
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p className="text-base">
+                  ตารางเวลานี้มีการจองแล้ว{' '}
+                  <span className="font-bold text-orange-600 text-lg">
+                    {deleteSlotInfo?.bookedSeats}
+                  </span>{' '}
+                  รายการ
+                </p>
+                
+                {deleteSlotInfo?.slotData && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm">
+                    <div className="font-medium text-gray-700 mb-2">ข้อมูลตารางเวลา:</div>
+                    <div className="space-y-1 text-gray-600">
+                      <div>แผนก: <span className="font-medium">{deleteSlotInfo.slotData.department_name}</span></div>
+                      <div>วันที่: <span className="font-medium">
+                        {toDate(deleteSlotInfo.slotData.slot_date) 
+                          ? format(toDate(deleteSlotInfo.slotData.slot_date)!, 'dd/MM/yyyy') 
+                          : '-'}
+                      </span></div>
+                      <div>เวลา: <span className="font-medium">
+                        {deleteSlotInfo.slotData.start_time} - {deleteSlotInfo.slotData.end_time}
+                      </span></div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-red-700 font-medium text-sm">
+                    ⚠️ หากคุณดำเนินการต่อ การจองทั้งหมด {deleteSlotInfo?.bookedSeats} รายการจะถูกยกเลิก
+                  </p>
+                </div>
+
+                <p className="text-gray-600 font-medium pt-2">
+                  คุณแน่ใจหรือไม่ที่จะลบตารางเวลานี้?
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel 
+                onClick={() => {
+                  setOpenForceDeleteModal(false);
+                  setDeleteSlotInfo(null);
+                  setDeleteSlotId(null);
+                }}
+                disabled={actionLoading}
+              >
+                ยกเลิก
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleForceDelete}
+                disabled={actionLoading}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {actionLoading ? "กำลังลบ..." : "ยืนยันการลบและยกเลิกการจอง"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 };

@@ -1,3 +1,4 @@
+// src/app/api/appointment/[booking_reference_number]/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 import mysql from "mysql2/promise"
 import type { PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise"
@@ -29,23 +30,29 @@ const createErrorResponse = (message: string, status: number = 500, details?: an
 
 const normalizeStatus = (s: string) => {
   const v = (s || "").trim().toLowerCase()
-  if (v === "canceled" || v === "cancel") return "cancelled" // ใช้มาตรฐาน 2 L
+  if (v === "canceled" || v === "cancel") return "cancelled"
   return v
 }
 
+const toHHMM = (time: string): string => {
+  if (!time) return '00:00'
+  const parts = time.split(':')
+  return `${parts[0]}:${parts[1]}`
+}
+
 type Params = { booking_reference_number: string }
-const REF_RE = /^\d{8}-\d{5}$/ // เช่น 20250908-00308
+const REF_RE = /^\d{8}-\d{5}$/
 
 // ---------- GET ----------
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<Params> }, // 👈 params เป็น Promise
+  { params }: { params: Promise<Params> },
 ) {
   let connection: PoolConnection | undefined
   try {
     connection = await pool.getConnection()
 
-    const { booking_reference_number } = await params // 👈 ต้อง await
+    const { booking_reference_number } = await params
     if (!booking_reference_number || !REF_RE.test(booking_reference_number)) {
       return createErrorResponse("รูปแบบหมายเลขอ้างอิงไม่ถูกต้อง", 400)
     }
@@ -61,6 +68,7 @@ export async function GET(
         b.created_by,
         b.status,
         b.cancelled_by AS cancelledBy,
+        b.cancellation_reason,
         b.booking_reference_number,
         b.booking_date,
         d.name AS department_name,
@@ -95,13 +103,13 @@ export async function GET(
 // ---------- PUT (update status + push LINE status update) ----------
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<Params> }, // 👈 params เป็น Promise
+  { params }: { params: Promise<Params> },
 ) {
   let connection: PoolConnection | undefined
   try {
     connection = await pool.getConnection()
 
-    const { booking_reference_number } = await params // 👈 ต้อง await
+    const { booking_reference_number } = await params
     if (!booking_reference_number || !REF_RE.test(booking_reference_number)) {
       return createErrorResponse("รูปแบบหมายเลขอ้างอิงไม่ถูกต้อง", 400)
     }
@@ -113,9 +121,14 @@ export async function PUT(
       return createErrorResponse("ข้อมูล JSON ไม่ถูกต้อง", 400)
     }
 
-    let { status, cancelledBy } = body
-    status = normalizeStatus(status)
+    let { status: rawStatus, cancelledBy, cancellation_reason } = body
+    let status = normalizeStatus(rawStatus)
+
     if (!status) return createErrorResponse("กรุณาระบุสถานะ", 400)
+
+    if (status === 'cancelled' && !cancellation_reason?.trim()) {
+      return createErrorResponse("กรุณาระบุเหตุผลการยกเลิก", 400)
+    }
 
     const valid = ["pending", "confirmed", "cancelled", "completed"]
     if (!valid.includes(status)) {
@@ -167,8 +180,8 @@ export async function PUT(
       }
 
       const [updateResult] = await connection.query<ResultSetHeader>(
-        "UPDATE bookings SET status = ?, cancelled_by = ? WHERE booking_reference_number = ?",
-        [status, cancelledBy || null, booking_reference_number],
+        "UPDATE bookings SET status = ?, cancelled_by = ?, cancellation_reason = ? WHERE booking_reference_number = ?",
+        [status, cancelledBy || null, cancellation_reason?.trim() || null, booking_reference_number],
       )
       if (updateResult.affectedRows === 0) {
         await connection.rollback()
@@ -220,8 +233,11 @@ export async function PUT(
               time: `${toHHMM(booking.start_time)}-${toHHMM(booking.end_time)}`,
               oldStatus: booking.status,
               newStatus: status,
-              statusMessage: status === "cancelled" ? "ผู้ใช้ยกเลิกคิวผ่านระบบ" : "มีการเปลี่ยนแปลงสถานะการนัดหมาย",
+              statusMessage: status === "cancelled" 
+                ? (cancellation_reason || "ผู้ใช้ยกเลิกคิวผ่านระบบ")
+                : "มีการเปลี่ยนแปลงสถานะการนัดหมาย",
               adminNote: cancelledBy ? `cancelledBy=${cancelledBy}` : null,
+              cancellationReason: cancellation_reason || null,
             },
           }
 
@@ -248,6 +264,7 @@ export async function PUT(
           bookingReferenceNumber: booking_reference_number,
           new_status: status,
           previous_status: booking.status,
+          cancellation_reason: cancellation_reason || null,
         },
         { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache" } },
       )
@@ -265,13 +282,13 @@ export async function PUT(
 // ---------- DELETE ----------
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<Params> }, // 👈 params เป็น Promise
+  { params }: { params: Promise<Params> },
 ) {
   let connection: PoolConnection | undefined
   try {
     connection = await pool.getConnection()
 
-    const { booking_reference_number } = await params // 👈 ต้อง await
+    const { booking_reference_number } = await params
     if (!booking_reference_number || !REF_RE.test(booking_reference_number)) {
       return createErrorResponse("รูปแบบหมายเลขอ้างอิงไม่ถูกต้อง", 400)
     }

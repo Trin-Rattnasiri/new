@@ -64,12 +64,12 @@ const Page = () => {
   const autoStep = !selectedDepartment
     ? 1
     : !selectedDate
-    ? 2
-    : !selectedSlot
-    ? 3
-    : currentStep === 4
-    ? 4
-    : 3 // step 3 until user clicks "ถัดไป"
+      ? 2
+      : !selectedSlot
+        ? 3
+        : currentStep === 4
+          ? 4
+          : 3 // step 3 until user clicks "ถัดไป"
 
   useEffect(() => {
     setCurrentStep(autoStep)
@@ -199,10 +199,16 @@ const Page = () => {
         }),
       })
       const result = await res.json()
+
       if (result.message === "จองคิวสำเร็จ") {
+        // ✅ แสดงข้อความจองสำเร็จ
         toast.success(
           `จองคิวสำเร็จ แผนก ${selectedDepartmentName} วันที่ ${formatDate(selectedDate)} เวลา ${selectedSlotTime}`
         )
+
+        // 🎯 เปลี่ยน step เป็น loading state
+        setCurrentStep(5) // step พิเศษสำหรับ loading
+
         setTimeout(() => {
           if (result?.bookingReferenceNumber) {
             router.replace(`/front/${encodeURIComponent(result.bookingReferenceNumber)}`)
@@ -210,7 +216,10 @@ const Page = () => {
             router.refresh?.() ?? window.location.reload()
           }
         }, 2000)
-      } else toast.error(result.message || "ไม่สามารถจองคิวได้")
+
+      } else {
+        toast.error(result.message || "ไม่สามารถจองคิวได้")
+      }
     } catch (err) {
       toast.error("เกิดข้อผิดพลาดในการจองคิว โปรดลองอีกครั้ง")
       console.error(err)
@@ -287,13 +296,12 @@ const Page = () => {
               {[1, 2, 3, 4].map((step) => (
                 <div key={step} className="flex flex-col items-center">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      currentStep === step
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === step
                         ? "bg-white text-blue-600 font-bold"
                         : currentStep > step
-                        ? "bg-green-400 text-white"
-                        : "bg-white bg-opacity-40 text-white"
-                    }`}
+                          ? "bg-green-400 text-white"
+                          : "bg-white bg-opacity-40 text-white"
+                      }`}
                   >
                     {currentStep > step ? <Check className="h-5 w-5" /> : step}
                   </div>
@@ -384,11 +392,10 @@ const Page = () => {
                           variant="outline"
                           onClick={() => handleSlotSelect(slot)}
                           disabled={slot.available_seats <= 0}
-                          className={`h-auto py-3 px-4 ${
-                            selectedSlot === slot.id
+                          className={`h-auto py-3 px-4 ${selectedSlot === slot.id
                               ? "bg-blue-50 border-blue-300 ring-2 ring-blue-200 text-blue-700"
                               : "border-gray-200 hover:bg-blue-50 hover:border-blue-200"
-                          } ${slot.available_seats <= 0 ? "opacity-50" : ""}`}
+                            } ${slot.available_seats <= 0 ? "opacity-50" : ""}`}
                         >
                           <div className="flex flex-col items-center w-full text-center">
                             <span className="font-medium">
@@ -508,6 +515,46 @@ const Page = () => {
                       "ยืนยันการนัดหมาย"
                     )}
                   </Button>
+                </div>
+              </div>
+            )}
+            {/* เพิ่มหลัง Step 4 ใน CardContent */}
+
+            {/* Step 5: Creating Appointment (Loading) */}
+            {currentStep === 5 && (
+              <div className="space-y-6 animate-fadeIn text-center py-8">
+                {/* Loading Animation */}
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="relative">
+                    <Loader2 className="h-16 w-16 animate-spin text-blue-600" />
+                    <div className="absolute inset-0 bg-blue-100 rounded-full animate-pulse opacity-50"></div>
+                  </div>
+
+                  {/* Main Message */}
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-semibold text-blue-900">
+                      กำลังสร้างใบนัดหมาย
+                    </h3>
+                    <p className="text-gray-600">
+                      โปรดรอสักครู่...
+                    </p>
+                  </div>
+                </div>
+
+                {/* Progress Dots */}
+                <div className="flex justify-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+
+                
+                {/* Info Message */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 max-w-sm mx-auto">
+                  <p className="text-sm text-blue-800 text-center">
+                    🎫 กำลังเตรียมใบนัดหมายของคุณ<br />
+                    <span className="text-blue-600">ใบนัดจะแสดงขึ้นในอีกสักครู่...</span>
+                  </p>
                 </div>
               </div>
             )}

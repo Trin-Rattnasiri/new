@@ -111,7 +111,7 @@ export default function DashboardPage() {
       setRefreshing(true)
       const res = await fetch("/api/admin/dashboard")
       if (!res.ok) {
-        throw new Error("ไม่สามารถดึงข้อมูล Dashboard ได้")
+        throw new Error("ไม่สามารถดึงข้อมูล Dashboard ได้",res)
       }
       const data = await res.json()
       setDashboardData(data)
