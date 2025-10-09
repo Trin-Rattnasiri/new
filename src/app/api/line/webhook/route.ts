@@ -1,4 +1,4 @@
-// src/app/api/line-webhook/route.ts
+//src/app/api/line/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server"
 
 export const runtime = "nodejs"

@@ -12,7 +12,7 @@ const PUBLIC_PATHS = new Set<string>([
 const PUBLIC_API_PREFIXES = [
   "/api/user/login",
   "/api/consent/log", 
-  "/api/line-webhook",
+  "/api/line/webhook",
   "/api/auth/line/callback",
   "/api/line/notification",
   "/api/appointment",
@@ -26,34 +26,35 @@ const PROTECTED_API_PREFIXES = [
   "/api/backend",
 ]
 
+// Compile JWT_SECRET once
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
-// 🆕 Helper function: แปลง role เป็นภาษาอังกฤษสำหรับ header
+// Cache role maps for better performance
+const ROLE_MAP = {
+  "เจ้าหน้าที่": "staff",
+  "ผู้ใช้": "user",
+  "SuperAdmin": "superadmin",
+  "Admin": "admin",
+  "staff": "staff",
+  "admin": "admin",
+  "user": "user",
+  "User": "user",
+  "USER": "user"
+} as const
+
+const USER_ROLES = new Set(["user", "ผู้ใช้", "User", "USER"])
+const STAFF_ROLES = new Set(["เจ้าหน้าที่", "SuperAdmin", "staff", "admin", "Admin"])
+
 function normalizeRoleForHeader(role: string): string {
-  const roleMap: Record<string, string> = {
-    "เจ้าหน้าที่": "staff",
-    "ผู้ใช้": "user",
-    "SuperAdmin": "superadmin",
-    "Admin": "admin",
-    "staff": "staff",
-    "admin": "admin",
-    "user": "user",
-    "User": "user",
-    "USER": "user"
-  }
-  return roleMap[role] || "unknown"
+  return ROLE_MAP[role as keyof typeof ROLE_MAP] || "unknown"
 }
 
-// Helper function: ตรวจสอบว่าเป็น user role หรือไม่
 function isUserRole(role: string): boolean {
-  const userRoles = ["user", "ผู้ใช้", "User", "USER"]
-  return userRoles.includes(role)
+  return USER_ROLES.has(role)
 }
 
-// Helper function: ตรวจสอบว่าเป็น staff/admin role หรือไม่
 function isStaffRole(role: string): boolean {
-  const staffRoles = ["เจ้าหน้าที่", "SuperAdmin", "staff", "admin", "Admin"]
-  return staffRoles.includes(role)
+  return STAFF_ROLES.has(role)
 }
 
 export async function middleware(req: NextRequest) {

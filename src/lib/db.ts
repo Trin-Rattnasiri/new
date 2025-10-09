@@ -12,11 +12,14 @@ export function getPool() {
     password: process.env.DB_PASSWORD!,
     database: process.env.DB_NAME!,
     waitForConnections: true,
-    connectionLimit: 10,
-    
-    idleTimeout: 300000,        // 5 นาที idle timeout
-    // เพิ่ม charset
+    connectionLimit: 25,         // เพิ่มจำนวน connection
+    queueLimit: 0,              // ไม่จำกัด queue
+    enableKeepAlive: true,      // เปิดใช้ keep-alive
+    keepAliveInitialDelay: 0,   
+    idleTimeout: 60000,         // ลด idle timeout เป็น 1 นาที
     charset: 'utf8mb4_unicode_ci',
+    connectTimeout: 10000,      // timeout การเชื่อมต่อ 10 วินาที
+    acquireTimeout: 10000,      // timeout การรอ connection 10 วินาที
   })
   
   // เพิ่ม error handling
