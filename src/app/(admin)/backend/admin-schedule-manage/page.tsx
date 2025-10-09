@@ -474,9 +474,9 @@ const AdminDashboard = () => {
                     <TableRow className="bg-gray-50">
                       <TableHead className="font-semibold">วันที่</TableHead>
                       <TableHead className="font-semibold">แผนก</TableHead>
-                      <TableHead className="font-semibold">เวลา</TableHead>
+                      <TableHead className="font-semibold text-center">เวลา</TableHead>
                       <TableHead className="font-semibold text-center">จำนวนว่าง / ทั้งหมด</TableHead>
-                      <TableHead className="font-semibold text-right">การดำเนินการ</TableHead>
+                      <TableHead className="font-semibold text-right ">การดำเนินการ</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -484,7 +484,7 @@ const AdminDashboard = () => {
                       <TableRow key={slot.id} className="hover:bg-gray-50">
                         <TableCell>{toDate(slot.slot_date) ? format(toDate(slot.slot_date)!, 'dd/MM/yyyy') : '-'}</TableCell>
                         <TableCell>{slot.department_name}</TableCell>
-                        <TableCell className="whitespace-nowrap">
+                        <TableCell className="whitespace-nowrap text-center ">
                           <span className="inline-flex items-center">
                             <Clock size={14} className="mr-1 text-gray-500" /> {slot.start_time} - {slot.end_time}
                           </span>
@@ -540,7 +540,7 @@ const AdminDashboard = () => {
                 <div>{departmentList.find(d => d.id === parseInt(selectedDepartment))?.name || '-'}</div>
                 <div className="font-medium">วันที่:</div>
                 <div>{slotDate ? format(new Date(slotDate), 'dd/MM/yyyy') : '-'}</div>
-                <div className="font-medium">เวลา:</div>
+                <div className="font-medium pl-2">เวลา:</div>
                 <div>{startTime} - {endTime}</div>
                 <div className="font-medium">จำนวนที่นั่ง:</div>
                 <div>{totalSeats}</div>

@@ -196,7 +196,7 @@ const AdminNewsPage = () => {
               </div>
 
               <div className="text-sm text-gray-500">
-                <p className="flex items-center"><ImageIcon className="h-4 w-4 mr-2" /> แนะนำขนาดภาพ: 1200 x 900 พิกเซล</p>
+                <p className="flex items-center "><ImageIcon className="h-4 w-4 mr-2 " /> แนะนำขนาดภาพ: 1200 x 900 พิกเซล</p>
                 <p className="flex items-center mt-1"><AlertTriangle className="h-4 w-4 mr-2" /> ภาพที่อัปโหลดจะแสดงบนหน้าข่าวสารของเว็บไซต์</p>
               </div>
             </div>
@@ -204,7 +204,7 @@ const AdminNewsPage = () => {
             {/* ส่วนรายละเอียด */}
             <div className="space-y-4">
               <div>
-                <label htmlFor="caption" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="caption" className="block text-sm font-bold text-gray-700 mb-1">
                   คำอธิบายภาพ
                 </label>
                 <Input

@@ -88,7 +88,7 @@ export default function AdminManagementPage() {
       setShowConfirmModal(false)
       setSuccessMessage("✅ ลบผู้ดูแลระบบเรียบร้อยแล้ว")
       setTimeout(() => setSuccessMessage(""), 3000)
-    } catch (err) {
+    } catch (error) {
       setError("ลบไม่สำเร็จ")
       setTimeout(() => setError(null), 3000)
     } finally {
@@ -159,7 +159,7 @@ export default function AdminManagementPage() {
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <div className="relative w-full sm:w-auto">
                 <Input
-                  className="w-full sm:w-64 bg-white border-slate-200"  // ← เอา pl-9 ออก
+                  className="w-full sm:w-64 bg-white border-slate-200"  
                   placeholder="ค้นหาชื่อหรือตำแหน่ง..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -221,18 +221,18 @@ export default function AdminManagementPage() {
               <Table>
                 <TableHeader className="bg-slate-50">
                   <TableRow>
-                    <TableHead className="w-12 text-center">#</TableHead>
-                    <TableHead>เลขประจำตัว</TableHead>
-                    <TableHead>ตำแหน่ง</TableHead>
-                    <TableHead className="text-right">การดำเนินการ</TableHead>
+                    <TableHead className="w-12 text-center font-bold">ลำดับ</TableHead>
+                    <TableHead className="font-bold text-center">เลขประจำตัว</TableHead>
+                    <TableHead className="font-bold text-center">ตำแหน่ง</TableHead>
+                    <TableHead className="text-right font-bold">การดำเนินการ</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((admin, index) => (
                     <TableRow key={admin.id} className="hover:bg-slate-50">
                       <TableCell className="text-center font-medium text-slate-500">{index + 1}</TableCell>
-                      <TableCell className="font-medium">{admin.username}</TableCell>
-                      <TableCell>
+                      <TableCell className=" text-center font-medium">{admin.username}</TableCell>
+                      <TableCell className="text-center">
                         <Badge variant={admin.position === "SuperAdmin" ? "default" : "secondary"}>
                           {admin.position}
                         </Badge>

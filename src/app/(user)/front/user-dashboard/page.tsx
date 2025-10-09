@@ -142,10 +142,24 @@ const DashboardPage = () => {
       }
     })()
 
-    fetch("/api/admin/new")
-      .then((r) => r.json())
-      .then((d) => setBannerImages(d.map((x: any) => x.imageUrl)))
-      .catch((e) => console.error("Error loading banner images:", e))
+   fetch("/api/admin/new")
+  .then((r) => r.json())
+  .then((d) => {
+    console.log('🔍 API Response:', d);
+    console.log('🔍 Type:', typeof d);
+    console.log('🔍 Is Array?:', Array.isArray(d));
+    
+    // แก้ไขตามโครงสร้างข้อมูลจริง
+    if (Array.isArray(d)) {
+      setBannerImages(d.map((x: any) => x.imageUrl))
+    } else if (d?.data && Array.isArray(d.data)) {
+      setBannerImages(d.data.map((x: any) => x.imageUrl))
+    } else {
+      console.error('Unexpected data format:', d);
+      setBannerImages([])
+    }
+  })
+  .catch((e) => console.error("Error loading banner images:", e))
 
     handleLineCallback()
     // eslint-disable-next-line react-hooks/exhaustive-deps

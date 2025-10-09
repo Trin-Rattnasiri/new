@@ -1,4 +1,4 @@
-// /app/api/line-notification/route.ts
+// src/app/api/line/notification/route.ts
 import { NextResponse } from 'next/server'
 import { Client } from '@line/bot-sdk'
 
@@ -107,6 +107,7 @@ export async function POST(request: Request) {
         oldStatus: normalizeStatus(statusUpdateDetails.oldStatus),
         statusMessage: statusUpdateDetails.statusMessage,
         adminNote: statusUpdateDetails.adminNote,
+        cancellationReason: statusUpdateDetails.cancellationReason,// ✅ แก้ไขตรงนี้
       }
     } else {
       messageData = {
@@ -114,6 +115,7 @@ export async function POST(request: Request) {
         date: toThaiDateText(appointmentDetails?.date),
         time: toTimeRangeText(appointmentDetails?.time),
         status: normalizeStatus(appointmentDetails?.status),
+        cancellationReason: appointmentDetails?.cancellationReason, // ✅ แก้ไขตรงนี้
       }
     }
 
@@ -124,127 +126,158 @@ export async function POST(request: Request) {
     // Flex Message
     let flexMessage: any
     if (messageType === 'status_update') {
-      flexMessage = {
-        type: 'flex',
-        altText: `🔄 อัปเดตสถานะ: ${messageData.referenceNumber} - ${statusText}`,
-        contents: {
-          type: 'bubble',
-          header: {
+  flexMessage = {
+    type: 'flex',
+    altText: ` อัปเดตสถานะ: ${messageData.referenceNumber} - ${statusText}`,
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: ' อัปเดตสถานะการนัดหมาย', weight: 'bold', size: 'lg', color: '#ffffff' },
+          { type: 'text', text: 'สถานะการจองของคุณได้รับการอัปเดต', size: 'sm', color: '#ffffff', margin: 'sm' },
+        ],
+        backgroundColor: statusColor,
+        paddingAll: '20px',
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
             type: 'box',
             layout: 'vertical',
             contents: [
-              { type: 'text', text: '🔄 อัปเดตสถานะการนัดหมาย', weight: 'bold', size: 'lg', color: '#ffffff' },
-              { type: 'text', text: 'สถานะการจองของคุณได้รับการอัปเดต', size: 'sm', color: '#ffffff', margin: 'sm' },
+              { type: 'text', text: 'การเปลี่ยนแปลงสถานะ', weight: 'bold', size: 'sm', color: '#666666' },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  {
+                    type: 'text',
+                    text: getStatusText(messageData.oldStatus),
+                    size: 'sm',
+                    color: '#999999',
+                    decoration: 'line-through',
+                    flex: 1,
+                  },
+                  { type: 'text', text: '➜', size: 'sm', color: '#666666', align: 'center' },
+                  {
+                    type: 'text',
+                    text: statusText,
+                    size: 'sm',
+                    weight: 'bold',
+                    color: statusColor,
+                    flex: 1,
+                    align: 'end',
+                  },
+                ],
+                margin: 'sm',
+              },
             ],
-            backgroundColor: statusColor,
-            paddingAll: '20px',
+            backgroundColor: '#f8fafc',
+            paddingAll: '15px',
+            cornerRadius: '8px',
+            margin: 'lg',
           },
-          body: {
+          
+          // 👇 เพิ่มส่วนแสดงเหตุผลการยกเลิก (เฉพาะเมื่อสถานะเป็น cancelled)
+          ...(messageData.status === 'cancelled' && messageData.cancellationReason ? [{
             type: 'box',
             layout: 'vertical',
             contents: [
-              {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  { type: 'text', text: 'การเปลี่ยนแปลงสถานะ', weight: 'bold', size: 'sm', color: '#666666' },
-                  {
-                    type: 'box',
-                    layout: 'horizontal',
-                    contents: [
-                      {
-                        type: 'text',
-                        text: getStatusText(messageData.oldStatus),
-                        size: 'sm',
-                        color: '#999999',
-                        decoration: 'line-through',
-                        flex: 1,
-                      },
-                      { type: 'text', text: '➜', size: 'sm', color: '#666666', align: 'center' },
-                      {
-                        type: 'text',
-                        text: statusText,
-                        size: 'sm',
-                        weight: 'bold',
-                        color: statusColor,
-                        flex: 1,
-                        align: 'end',
-                      },
-                    ],
-                    margin: 'sm',
-                  },
-                ],
-                backgroundColor: '#f8fafc',
-                paddingAll: '15px',
-                cornerRadius: '8px',
-                margin: 'lg',
-              },
-              { type: 'separator', margin: 'lg' },
-              {
-                type: 'box',
-                layout: 'horizontal',
-                contents: [
-                  { type: 'text', text: 'เลขอ้างอิง', color: '#666666', size: 'sm', flex: 2 },
-                  {
-                    type: 'text',
-                    text: messageData.referenceNumber,
-                    weight: 'bold',
-                    size: 'sm',
-                    flex: 3,
-                    align: 'end',
-                    color: '#f59e0b',
-                  },
-                ],
-                margin: 'lg',
+              { 
+                type: 'text', 
+                text: 'เหตุผลการยกเลิก:', 
+                weight: 'bold', 
+                size: 'sm', 
+                color: '#ef4444' 
               },
               {
-                type: 'box',
-                layout: 'horizontal',
-                contents: [
-                  { type: 'text', text: 'แผนก', color: '#666666', size: 'sm', flex: 2 },
-                  {
-                    type: 'text',
-                    text: messageData.department,
-                    weight: 'bold',
-                    size: 'sm',
-                    flex: 3,
-                    align: 'end',
-                    wrap: true,
-                  },
-                ],
-                margin: 'md',
-              },
-              {
-                type: 'box',
-                layout: 'horizontal',
-                contents: [
-                  { type: 'text', text: 'วันที่', color: '#666666', size: 'sm', flex: 2 },
-                  {
-                    type: 'text',
-                    text: messageData.date, // ✅ ไทยเสมอ
-                    weight: 'bold',
-                    size: 'sm',
-                    flex: 3,
-                    align: 'end',
-                    wrap: true,
-                  },
-                ],
-                margin: 'md',
-              },
-              {
-                type: 'box',
-                layout: 'horizontal',
-                contents: [
-                  { type: 'text', text: 'เวลา', color: '#666666', size: 'sm', flex: 2 },
-                  { type: 'text', text: messageData.time, weight: 'bold', size: 'sm', flex: 3, align: 'end' },
-                ],
-                margin: 'md',
+                type: 'text',
+                text: messageData.cancellationReason,
+                size: 'sm',
+                color: '#64748b',
+                wrap: true,
+                margin: 'sm',
               },
             ],
-            paddingAll: '20px',
+            backgroundColor: '#fef2f2',
+            paddingAll: '15px',
+            cornerRadius: '8px',
+            margin: 'lg',
+            borderWidth: '1px',
+            borderColor: '#fecaca',
+          }] : []),
+          
+          { type: 'separator', margin: 'lg' },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: 'เลขอ้างอิง', color: '#666666', size: 'sm', flex: 2 },
+              {
+                type: 'text',
+                text: messageData.referenceNumber,
+                weight: 'bold',
+                size: 'sm',
+                flex: 3,
+                align: 'end',
+                color: '#f59e0b',
+              },
+            ],
+            margin: 'lg',
           },
-        },
-      }
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: 'แผนก', color: '#666666', size: 'sm', flex: 2 },
+              {
+                type: 'text',
+                text: messageData.department,
+                weight: 'bold',
+                size: 'sm',
+                flex: 3,
+                align: 'end',
+                wrap: true,
+              },
+            ],
+            margin: 'md',
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: 'วันที่', color: '#666666', size: 'sm', flex: 2 },
+              {
+                type: 'text',
+                text: messageData.date,
+                weight: 'bold',
+                size: 'sm',
+                flex: 3,
+                align: 'end',
+                wrap: true,
+              },
+            ],
+            margin: 'md',
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: 'เวลา', color: '#666666', size: 'sm', flex: 2 },
+              { type: 'text', text: messageData.time, weight: 'bold', size: 'sm', flex: 3, align: 'end' },
+            ],
+            margin: 'md',
+          },
+        ],
+        paddingAll: '20px',
+      },
+    },
+  }
+
     } else {
       flexMessage = {
         type: 'flex',
@@ -307,7 +340,7 @@ export async function POST(request: Request) {
                   { type: 'text', text: 'วันที่', color: '#666666', size: 'sm', flex: 2 },
                   {
                     type: 'text',
-                    text: messageData.date, // ✅ ไทยเสมอ
+                    text: messageData.date,
                     weight: 'bold',
                     size: 'sm',
                     flex: 3,

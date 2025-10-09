@@ -503,29 +503,35 @@ export default function AdminBookingsPage() {
                     />
                   </div>
 
+                  {/* Dropdown แผนก */}
                   <Select
                     options={departmentOptions}
                     onChange={(selected) => setDepartmentFilter(selected?.value || "")}
                     value={departmentOptions.find((opt) => opt.value === departmentFilter)}
                     placeholder="แผนก"
+                    isSearchable={false}  // 👈 เพิ่ม
                     className="react-select-container"
                     classNamePrefix="react-select"
                   />
 
+                  {/* Dropdown สถานะ */}
                   <Select
                     options={statusOptions}
                     onChange={(selected) => setStatusFilter(selected?.value || "")}
                     value={statusOptions.find((opt) => opt.value === statusFilter)}
                     placeholder="สถานะ"
+                    isSearchable={false}  // 👈 เพิ่ม
                     className="react-select-container"
                     classNamePrefix="react-select"
                   />
 
+                  {/* Dropdown ช่วงเวลา */}
                   <Select
                     options={timeOptions}
                     onChange={(selected) => setTimeFilter(selected?.value || "all")}
                     value={timeOptions.find((opt) => opt.value === timeFilter)}
                     placeholder="ช่วงเวลา"
+                    isSearchable={false}  // 👈 เพิ่ม
                     className="react-select-container"
                     classNamePrefix="react-select"
                   />
@@ -537,7 +543,7 @@ export default function AdminBookingsPage() {
                   <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                     <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                     <p className="text-gray-500 font-medium">ไม่พบรายการนัดหมาย</p>
-                    <p className="text-sm text-gray-400 mt-1">ลองปรับเงื่อนไขการค้นหาหรือล้างตัวกรอง</p>
+                    <p className="text-sm text-gray-400 mt-1">ลองปรับเงื่อนไขการค้นหา</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -755,12 +761,12 @@ export default function AdminBookingsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>แผนก</TableHead>
-                          <TableHead>วันที่</TableHead>
-                          <TableHead>เวลา</TableHead>
-                          <TableHead>จำนวนที่นั่งว่าง</TableHead>
+                          <TableHead >แผนก</TableHead>
+                          <TableHead className="pl-10">วันที่</TableHead>
+                          <TableHead className="pl-10" >เวลา</TableHead>
+                          <TableHead >จำนวนที่นั่งว่าง</TableHead>
                           <TableHead>จำนวนที่เปิดจองทั้งหมด</TableHead>
-                          <TableHead>สถานะ</TableHead>
+                          <TableHead className="pl-5">สถานะ</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -790,7 +796,7 @@ export default function AdminBookingsPage() {
                                   {format(slotDate, "dd/MM/yyyy")}
                                 </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="ml-2">
                                 <div className="flex items-center">
                                   <ClockIcon className="mr-1 h-4 w-4 text-gray-500" />
                                   {`${slot.start_time} - ${slot.end_time}`}
@@ -855,7 +861,7 @@ export default function AdminBookingsPage() {
                 ยืนยันการยกเลิกนัดหมาย
               </DialogTitle>
               <DialogDescription className="text-gray-600 mt-2">
-                คุณต้องการยกเลิกการนัดหมายนี้ใช่หรือไม่? สถานะจะเปลี่ยนเป็น "ยกเลิกแล้ว"
+                คุณต้องการยกเลิกการนัดหมายนี้ใช่หรือไม่? สถานะจะเปลี่ยนเป็น "ยกเลิก"
               </DialogDescription>
             </DialogHeader>
 

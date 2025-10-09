@@ -158,6 +158,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+
 // POST - Create new admin - ต้องเป็น SuperAdmin เท่านั้น
 export async function POST(request: NextRequest) {
   try {
@@ -214,21 +215,21 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Insert new admin
+    // ✅ เปลี่ยนจาก 0 เป็น 1 (อนุมัติอัตโนมัติ)
     const [result] = await conn.execute(
       'INSERT INTO admins (username, position, password, is_approved) VALUES (?, ?, ?, ?)',
-      [username, position, hashedPassword, 0] // Default to not approved
+      [username, position, hashedPassword, 1] // ✅ เปลี่ยนตรงนี้
     );
     await conn.end();
 
     return NextResponse.json({
       success: true,
-      message: 'Admin created successfully. Pending approval.',
+      message: 'Admin created successfully.', // ✅ ลบข้อความ "Pending approval"
       data: {
         id: (result as any).insertId,
         username,
         position,
-        is_approved: 0
+        is_approved: 1 // ✅ เปลี่ยนตรงนี้
       }
     });
 

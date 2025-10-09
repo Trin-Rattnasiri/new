@@ -1,12 +1,12 @@
-// middleware.ts  
+// middleware.ts
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { jwtVerify } from "jose"
 
 const PUBLIC_PATHS = new Set<string>([
-  "/",                       //  หน้าแรก  Login
-  "/front/user-signup",      // หน้า signup
-  "/401",                    // 🆕 เพิ่ม หน้า 401 ให้เป็น public
+  "/",
+  "/front/user-signup",
+  "/401",
 ])
 
 const PUBLIC_API_PREFIXES = [
@@ -14,16 +14,47 @@ const PUBLIC_API_PREFIXES = [
   "/api/consent/log", 
   "/api/line-webhook",
   "/api/auth/line/callback",
+  "/api/line/notification",
+  "/api/appointment",
+  "/api/admin/que",
+  "/api/admin/new",
 ]
 
-// 🆕 กำหนด API ที่ต้องการการตรวจสอบสิทธิ์
 const PROTECTED_API_PREFIXES = [
-  "/api/admin",      // API สำหรับ admin/staff
-  "/api/user",       // API สำหรับ user (ยกเว้น login)
-  "/api/backend",    // API สำหรับ backend
+  "/api/admin",
+  "/api/user",
+  "/api/backend",
 ]
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
+
+// 🆕 Helper function: แปลง role เป็นภาษาอังกฤษสำหรับ header
+function normalizeRoleForHeader(role: string): string {
+  const roleMap: Record<string, string> = {
+    "เจ้าหน้าที่": "staff",
+    "ผู้ใช้": "user",
+    "SuperAdmin": "superadmin",
+    "Admin": "admin",
+    "staff": "staff",
+    "admin": "admin",
+    "user": "user",
+    "User": "user",
+    "USER": "user"
+  }
+  return roleMap[role] || "unknown"
+}
+
+// Helper function: ตรวจสอบว่าเป็น user role หรือไม่
+function isUserRole(role: string): boolean {
+  const userRoles = ["user", "ผู้ใช้", "User", "USER"]
+  return userRoles.includes(role)
+}
+
+// Helper function: ตรวจสอบว่าเป็น staff/admin role หรือไม่
+function isStaffRole(role: string): boolean {
+  const staffRoles = ["เจ้าหน้าที่", "SuperAdmin", "staff", "admin", "Admin"]
+  return staffRoles.includes(role)
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
@@ -36,13 +67,14 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/assets") ||
     pathname.startsWith("/.well-known")
   ) return NextResponse.next()
+  
 
   // ปล่อย API สาธารณะ
   if (PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 
-  // 🆕 ตรวจสอบ API ที่ต้องการการยืนยันตัวตน
+  // ตรวจสอบ API ที่ต้องการการยืนยันตัวตน
   if (PROTECTED_API_PREFIXES.some((p) => pathname.startsWith(p))) {
     const token = req.cookies.get("session")?.value
     
@@ -57,9 +89,12 @@ export async function middleware(req: NextRequest) {
       const { payload } = await jwtVerify(token, JWT_SECRET, { algorithms: ["HS256"] })
       const userRole = payload.role as string
 
+      console.log(`🔍 API Access - Role: ${userRole}, Path: ${pathname}`)
+
       // ตรวจสอบสิทธิ์สำหรับ API admin
       if (pathname.startsWith("/api/admin")) {
-        if (userRole !== "เจ้าหน้าที่" && userRole !== "SuperAdmin") {
+        if (!isStaffRole(userRole)) {
+          console.log(`❌ Blocked: ${userRole} tried to access admin API`)
           return NextResponse.json(
             { error: "Forbidden", message: "คุณไม่มีสิทธิ์เข้าถึง API นี้" },
             { status: 403 }
@@ -69,7 +104,8 @@ export async function middleware(req: NextRequest) {
 
       // ตรวจสอบสิทธิ์สำหรับ API user (ยกเว้น login)
       if (pathname.startsWith("/api/user") && !pathname.startsWith("/api/user/login")) {
-        if (userRole !== "user") {
+        if (!isUserRole(userRole)) {
+          console.log(`❌ Blocked: ${userRole} tried to access user API`)
           return NextResponse.json(
             { error: "Forbidden", message: "คุณไม่มีสิทธิ์เข้าถึง API นี้" },
             { status: 403 }
@@ -77,10 +113,10 @@ export async function middleware(req: NextRequest) {
         }
       }
 
-      // เพิ่ม user data ใน headers สำหรับ API ที่ผ่านการตรวจสอบ
+      // ✅ แก้ไข: แปลง role เป็นภาษาอังกฤษก่อนใส่ใน header
       const requestHeaders = new Headers(req.headers)
       requestHeaders.set('x-user-id', payload.userId as string)
-      requestHeaders.set('x-user-role', userRole)
+      requestHeaders.set('x-user-role', normalizeRoleForHeader(userRole)) // 🔧 แก้ไขตรงนี้
 
       return NextResponse.next({
         request: {
@@ -106,44 +142,43 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get("session")?.value
   if (!token) {
     const url = req.nextUrl.clone()
-    url.pathname = "/401"  // 🔧 แก้ไข: redirect ไป 401 แทน
+    url.pathname = "/401"
     return NextResponse.redirect(url)
   }
 
   try {
-    // ถอดรหัส JWT เพื่อดู role
     const { payload } = await jwtVerify(token, JWT_SECRET, { algorithms: ["HS256"] })
     const userRole = payload.role as string
     
-    console.log(`🔍 User role: ${userRole}, accessing: ${pathname}`)
+    console.log(`🔍 Page Access - Role: ${userRole}, Path: ${pathname}`)
     
-    // 🔧 แก้ไข: ตรวจสอบสิทธิ์ตาม role ที่ถูกต้อง
+    // ตรวจสอบสิทธิ์หน้าเจ้าหน้าที่
     if (pathname.startsWith("/เจ้าหน้าที่") || pathname.startsWith("/backend")) {
-      // หน้าเจ้าหน้าที่ - ต้องเป็น เจ้าหน้าที่ หรือ SuperAdmin
-      if (userRole !== "เจ้าหน้าที่" && userRole !== "SuperAdmin") {
+      if (!isStaffRole(userRole)) {
         console.log("❌ User trying to access staff area - showing 401")
         const url = req.nextUrl.clone()
-        url.pathname = "/401"  // 🔧 แก้ไข: แสดงหน้า 401 แทนการ redirect
+        url.pathname = "/401"
         return NextResponse.redirect(url)
       }
-    } else if (pathname.startsWith("/front")) {
-      // หน้า user - ต้องเป็น user
-      if (userRole !== "user") {
+    } 
+    // ตรวจสอบสิทธิ์หน้า user
+    else if (pathname.startsWith("/front")) {
+      if (!isUserRole(userRole)) {
         console.log("❌ Staff trying to access user area - showing 401")
         const url = req.nextUrl.clone()
-        url.pathname = "/401"  // 🔧 แก้ไข: แสดงหน้า 401 แทนการ redirect
+        url.pathname = "/401"
         return NextResponse.redirect(url)
       }
     }
     
-    // 🔧 แก้ไข: Auto redirect หลัง login สำเร็จ
+    // Auto redirect หลัง login
     if (pathname === "/" && token) {
       console.log(`🚀 Auto redirecting ${userRole} to appropriate dashboard`)
       const url = req.nextUrl.clone()
       
-      if (userRole === "เจ้าหน้าที่" || userRole === "SuperAdmin") {
+      if (isStaffRole(userRole)) {
         url.pathname = "/backend/dashboard"
-      } else if (userRole === "user") {
+      } else if (isUserRole(userRole)) {
         url.pathname = "/front/user-dashboard"
       }
       
@@ -154,17 +189,17 @@ export async function middleware(req: NextRequest) {
   } catch (error) {
     console.error("🚨 JWT Verification failed:", error)
     const url = req.nextUrl.clone()
-    url.pathname = "/401"  // 🔧 แก้ไข: แสดงหน้า 401 เมื่อ JWT ไม่ถูกต้อง
+    url.pathname = "/401"
     return NextResponse.redirect(url)
   }
 }
 
 export const config = {
   matcher: [
-    "/",                     // เพื่อ auto redirect หลัง login
-    "/front/:path*",         // ป้องกันหน้าฝั่งผู้ใช้
-    "/เจ้าหน้าที่/:path*",     // ป้องกันหน้าฝั่งเจ้าหน้าที่
-    "/backend/:path*",       // ป้องกันหน้า backend
-    "/api/:path*",           // 🆕 ป้องกัน API endpoints ทั้งหมด
+    "/",
+    "/front/:path*",
+    "/เจ้าหน้าที่/:path*",
+    "/backend/:path*",
+    "/api/:path*",
   ],
 }

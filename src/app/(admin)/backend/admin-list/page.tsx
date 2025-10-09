@@ -185,7 +185,7 @@ const AdminPage = () => {
             </Heading>
           </div>
           <Badge variant="outline" className="px-4 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
-            จำนวนแผนกทั้งหมด: {departmentList.length}
+            จำนวนแผนกที่เปิดจอง: {departmentList.length}
           </Badge>
         </div>
 
@@ -247,9 +247,9 @@ const AdminPage = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-16 text-center">ลำดับ</TableHead>
-                        <TableHead>ชื่อแผนก</TableHead>
-                        <TableHead className="text-right">จัดการ</TableHead>
+                        <TableHead className=" font-bold w-16 text-center">ลำดับ</TableHead>
+                        <TableHead className="font-bold text-center">ชื่อแผนก</TableHead>
+                        <TableHead className="font-bold text-right  ">จัดการ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -276,7 +276,7 @@ const AdminPage = () => {
                         filteredDepartments.map((dept, index) => (
                           <TableRow key={dept.id} className="hover:bg-gray-50">
                             <TableCell className="text-center font-medium text-gray-500">{index + 1}</TableCell>
-                            <TableCell>{dept.name}</TableCell>
+                            <TableCell className="text-center">{dept.name}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button
