@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import {
   Calendar,
   Phone,
@@ -72,33 +74,36 @@ export default function AppointmentPage() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // ✅ เพิ่ม state สำหรับเหตุผลการยกเลิก
+  const [cancellationReason, setCancellationReason] = useState("")
+
   // ดึงข้อมูลใบนัด
   useEffect(() => {
     if (!booking_reference_number) return
     const ac = new AbortController()
 
-    ;(async () => {
-      setLoading(true)
-      try {
-        const res = await fetch(
-          `/api/appointment/${encodeURIComponent(booking_reference_number)}`,
-          { cache: "no-store", signal: ac.signal, headers: { Accept: "application/json" } },
-        )
-        if (!res.ok) {
-          setData(null)
-        } else {
-          const result = (await res.json()) as Appointment
-          setData(result)
+      ; (async () => {
+        setLoading(true)
+        try {
+          const res = await fetch(
+            `/api/appointment/${encodeURIComponent(booking_reference_number)}`,
+            { cache: "no-store", signal: ac.signal, headers: { Accept: "application/json" } },
+          )
+          if (!res.ok) {
+            setData(null)
+          } else {
+            const result = (await res.json()) as Appointment
+            setData(result)
+          }
+        } catch (error: any) {
+          if (error?.name !== "AbortError") {
+            console.error("Error fetching appointment:", error)
+            setData(null)
+          }
+        } finally {
+          if (!ac.signal.aborted) setLoading(false)
         }
-      } catch (error: any) {
-        if (error?.name !== "AbortError") {
-          console.error("Error fetching appointment:", error)
-          setData(null)
-        }
-      } finally {
-        if (!ac.signal.aborted) setLoading(false)
-      }
-    })()
+      })()
 
     return () => ac.abort()
   }, [booking_reference_number])
@@ -122,16 +127,28 @@ export default function AppointmentPage() {
 
   const handleCancelAppointment = async () => {
     if (!booking_reference_number) return
+
+    // ✅ ตรวจสอบว่ากรอกเหตุผลหรือยัง
+    if (!cancellationReason.trim()) {
+      alert("⚠️ กรุณาระบุเหตุผลการยกเลิก")
+      return
+    }
+
     setIsCancelling(true)
     try {
       const res = await fetch(`/api/appointment/${encodeURIComponent(booking_reference_number)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "cancelled", cancelledBy: "user" }),
+        body: JSON.stringify({
+          status: "cancelled",
+          cancelledBy: "user",
+          cancellation_reason: cancellationReason.trim(),// ✅ ส่งเหตุผลไปด้วย
+        }),
       })
 
       if (res.ok) {
         setShowCancelDialog(false)
+        setCancellationReason("")// ✅ รีเซ็ต
         await refresh()
       } else {
         const msg = await res.text().catch(() => "")
@@ -168,7 +185,7 @@ export default function AppointmentPage() {
     }
   }
 
-  // รายละเอียดสถานะ (สำหรับ badge + แบนเนอร์ด้านบน)
+  // รายละเอียดสถานะ
   const getStatusDetails = (a: Appointment | null) => {
     if (!a) {
       return {
@@ -212,6 +229,7 @@ export default function AppointmentPage() {
       badgeClass: "bg-red-100 text-red-700 hover:bg-red-100",
       text: cancelledBy === "user" ? "ยกเลิกโดยผู้ใช้" : cancelledBy === "admin" ? "ยกเลิกโดยแอดมิน" : "ยกเลิก",
       banner: "นัดหมายถูกยกเลิกแล้ว",
+    
     }
   }
 
@@ -388,22 +406,47 @@ export default function AppointmentPage() {
       </Card>
 
       {/* Dialog ยืนยันการยกเลิกนัดหมาย */}
-      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent className="max-w-[350px] rounded-xl p-0 overflow-hidden border-amber-100">
+      <Dialog open={showCancelDialog} onOpenChange={(open) => {
+        setShowCancelDialog(open)
+        if (!open) setCancellationReason("") // รีเซ็ตเมื่อปิด
+      }}>
+        <DialogContent className="max-w-[400px] rounded-xl p-0 overflow-hidden border-amber-100">
           <DialogHeader className="bg-amber-50 p-5 border-b border-amber-100">
             <div className="mx-auto w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-3">
               <AlertTriangle className="h-6 w-6 text-amber-500" />
             </div>
             <DialogTitle className="text-center text-amber-700 text-xl">ยืนยันการยกเลิกนัด</DialogTitle>
             <DialogDescription className="text-slate-600 mt-2 text-center">
-              คุณต้องการยกเลิกนัดหมายนี้ใช่หรือไม่? ใบนัดจะยังคงอยู่ในระบบแต่จะถูกทำเครื่องหมายว่ายกเลิกโดยผู้ใช้
+              กรุณาระบุเหตุผลการยกเลิกนัดหมาย
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="p-5 flex flex-col sm:flex-row gap-3">
+
+          {/* ✅ เพิ่มช่องกรอกเหตุผล */}
+          <div className="p-5 space-y-3">
+            <Label htmlFor="cancel-reason" className="text-sm font-medium text-gray-700">
+              เหตุผลการยกเลิก <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="cancel-reason"
+              placeholder="เช่น ติดธุระส่วนตัว, เปลี่ยนแผนการรักษา, อื่นๆ..."
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)} // ✅ แก้ตรงนี้
+              rows={4}
+              className="resize-none"
+            />
+            <p className="text-xs text-gray-500">
+              {cancellationReason.length}/200 ตัวอักษร  
+            </p>
+          </div>
+
+          <DialogFooter className="p-5 pt-0 flex flex-col sm:flex-row gap-3">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setShowCancelDialog(false)}
+              onClick={() => {
+                setShowCancelDialog(false)
+                setCancellationReason("")
+              }}
               className="bg-white border-gray-200 flex-1 sm:flex-none sm:min-w-[100px]"
               disabled={isCancelling}
             >
@@ -412,8 +455,8 @@ export default function AppointmentPage() {
             <Button
               type="button"
               onClick={handleCancelAppointment}
-              disabled={isCancelling}
-              className="bg-amber-600 hover:bg-amber-700 text-white flex-1 sm:flex-none sm:min-w-[150px] transition-all"
+              disabled={isCancelling || !cancellationReason.trim()}
+              className="bg-amber-600 hover:bg-amber-700 text-white flex-1 sm:flex-none sm:min-w-[150px] transition-all disabled:opacity-50"
             >
               {isCancelling ? (
                 <>

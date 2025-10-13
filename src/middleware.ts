@@ -18,6 +18,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/appointment",
   "/api/admin/que",
   "/api/admin/new",
+  "/api/user/signup",
 ]
 
 const PROTECTED_API_PREFIXES = [
