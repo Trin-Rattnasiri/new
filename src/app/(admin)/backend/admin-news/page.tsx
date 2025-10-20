@@ -1,3 +1,4 @@
+// src/app/backend/admin-news/page.tsx
 "use client"
 
 import { useEffect, useState, useRef } from "react"
@@ -168,6 +169,7 @@ const AdminNewsPage = () => {
                       alt="preview"
                       fill
                       className="rounded-md object-cover"
+                      unoptimized
                     />
                     <button
                       onClick={(e) => {
@@ -256,6 +258,7 @@ const AdminNewsPage = () => {
                   alt={item.caption || "ข่าว"}
                   fill
                   className="object-cover"
+                  unoptimized
                 />
                 <Button
                   onClick={() => confirmDelete(item.id)}

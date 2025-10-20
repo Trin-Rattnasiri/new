@@ -1,3 +1,4 @@
+// src/app/api/admin/department/route.ts
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 

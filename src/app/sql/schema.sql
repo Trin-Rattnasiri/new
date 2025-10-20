@@ -3,14 +3,14 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 21, 2025 at 12:13 PM
+-- Generation Time: Oct 19, 2025 at 03:03 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
-
+USE hospital_booking;
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -42,11 +42,10 @@ CREATE TABLE `admins` (
 --
 
 INSERT INTO `admins` (`id`, `username`, `position`, `password`, `created_at`, `updated_at`, `is_approved`) VALUES
-(10, '6531503056', 'SuperAdmin', '$2b$10$xj3ia7BgtkB6fmdNf0u/DuzrP7P9..oL9FsogHc7SVuzUt0XLriWa', '2025-04-15 09:34:51', '2025-09-18 14:06:56', 1),
-(11, '123456789', 'เจ้าหน้าที่', '$2b$10$Y6Il1S.sF8d2Yyh0Ri.vYO6hjtE6cOiidhrmh2HpH/QXC6jq7RDUy', '2025-04-15 09:46:42', '2025-09-18 14:07:56', 1),
-(12, '22222222', 'เจ้าหน้าที่', '$2b$10$6Ry2MkEKoJfd.iKmweE92em./KfuXYxAuPp6OpMInBHqeaJYdJCTC', '2025-04-15 10:02:07', '2025-09-16 13:50:05', 1),
-(25, '6531503088', 'เจ้าหน้าที่', '$2b$10$VIc0.tBmk8z2MoggE.51T.ex/0abDeUHXmjZQqYum2CqOm2tssBzS', '2025-09-16 14:25:57', '2025-09-16 14:26:15', 1),
-(26, '6531503102', 'SuperAdmin', '$2b$10$Xy2DkToM8AYjDdCxg6gZxerg0T98UQ9lAkHUrK4v/1gJlruHzQkci', '2025-09-18 14:07:19', '2025-09-18 14:07:44', 0);
+(10, '6531503056', 'SuperAdmin', '$2b$10$xj3ia7BgtkB6fmdNf0u/DuzrP7P9..oL9FsogHc7SVuzUt0XLriWa', '2025-04-15 09:34:51', '2025-10-19 12:47:35', 1),
+(26, '6531503102', 'SuperAdmin', '$2b$10$Xy2DkToM8AYjDdCxg6gZxerg0T98UQ9lAkHUrK4v/1gJlruHzQkci', '2025-09-18 14:07:19', '2025-09-25 15:02:56', 1),
+(28, '22222222', 'เจ้าหน้าที่', '$2b$12$WApNhcaN86bs.OVra7rpK.d2Sx/3TnaXBD4DSvN5ySPUunaUUiTl.', '2025-09-25 15:03:12', '2025-10-07 17:48:07', 1),
+(31, '1234565', 'เจ้าหน้าที่', '$2b$12$muWllC55O4w.wHOusjz9Iu.b3KldoaLaQHVN2vU4A4J.eX3KeUkha', '2025-10-07 12:23:29', '2025-10-07 12:23:29', 1);
 
 -- --------------------------------------------------------
 
@@ -58,30 +57,18 @@ CREATE TABLE `bookings` (
   `id` int(11) NOT NULL,
   `department_id` int(11) DEFAULT NULL,
   `slot_id` int(11) DEFAULT NULL,
-  `booking_date` date NOT NULL DEFAULT (CURDATE()),
-  `status` enum('pending','confirmed','cancelled') DEFAULT 'pending',
+  `booking_date` date NOT NULL,
+  `status` ENUM('pending','confirmed','cancelled') DEFAULT 'pending',
   `booking_reference_number` varchar(20) DEFAULT NULL,
   `name` varchar(255) DEFAULT NULL,
   `hn` varchar(50) DEFAULT NULL,
   `created_by` varchar(20) DEFAULT NULL,
   `phone_number` varchar(20) DEFAULT NULL,
   `cancelled_by` varchar(10) DEFAULT NULL COMMENT 'ผู้ยกเลิกนัด (user หรือ admin)',
+  `cancellation_reason` text DEFAULT NULL,
   `is_read_by_admin` tinyint(1) DEFAULT 0,
   `read_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `bookings`
---
-
-INSERT INTO `bookings` (`id`, `department_id`, `slot_id`, `booking_date`, `status`, `booking_reference_number`, `name`, `hn`, `created_by`, `phone_number`, `cancelled_by`, `is_read_by_admin`, `read_at`) VALUES
-(292, 63, 90, '2025-08-24', 'confirmed', '20250823-00292', 'ปุณยวีร์ พร้อมมูล', 'HN00000008', '1909802814890', NULL, 'admin', 0, NULL),
-(319, 62, 95, '2025-09-09', 'confirmed', '20250908-00319', 'ปุณยวีร์ พร้อมมูล', 'HN00000008', '1909802814890', NULL, NULL, 1, '2025-09-05 04:11:05'),
-(336, 62, 85, '2025-09-27', 'pending', '20250926-00336', 'sun nuttnaon', 'HN00000009', '1214755555555', NULL, NULL, 1, '2025-09-16 15:49:27'),
-(339, 62, 85, '2025-09-27', 'pending', '20250926-00339', 'sun nuttnaon', 'HN00000009', '1214755555555', NULL, 'admin', 1, '2025-09-16 15:49:27'),
-(356, 62, 85, '2025-09-27', 'pending', '20250926-00356', 'ปุณยวีร์ พร้อมมูล', 'HN00000008', '1909802814890', '0839277425', NULL, 1, '2025-09-18 11:06:51'),
-(360, 62, 85, '2025-09-27', 'pending', '20250926-00360', 'ปุณยวีร์ พร้อมมูล', 'HN00000008', '1909802814890', '0839277425', NULL, 1, '2025-09-18 11:48:31'),
-(364, 61, 98, '2025-09-25', 'pending', '20250924-00364', 'ยามีน ยามาว', 'HN00000016', '1234524680246', '0987654321', NULL, 1, '2025-09-18 13:01:30');
 
 -- --------------------------------------------------------
 
@@ -105,12 +92,12 @@ CREATE TABLE `consent_logs` (
 --
 
 INSERT INTO `consent_logs` (`id`, `citizen_id`, `purpose`, `consent`, `accepted_at`, `ip`, `user_agent`, `created_at`) VALUES
-(3, '1909802814890', 'service', 1, '2025-09-18 19:59:10', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-18 12:59:10'),
-(4, '1909802814890', 'marketing', 0, '2025-09-18 19:59:10', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-18 12:59:10'),
-(7, '1309802814890', 'service', 1, '2025-08-23 23:14:15', '2405:9800:b910:18b0:38c1:6e90:28f5:ceae', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', '2025-08-23 16:14:15'),
-(8, '1309802814890', 'marketing', 1, '2025-08-23 23:14:15', '2405:9800:b910:18b0:38c1:6e90:28f5:ceae', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', '2025-08-23 16:14:15'),
-(17, '6531503056', 'service', 1, '2025-09-18 21:04:11', '::ffff:127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-18 14:04:12'),
-(18, '6531503056', 'marketing', 1, '2025-09-18 21:04:11', '::ffff:127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-18 14:04:12'),
+(3, '1909802814890', 'service', 1, '2025-10-14 15:42:10', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-14 08:42:12'),
+(4, '1909802814890', 'marketing', 0, '2025-10-14 15:42:10', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-14 08:42:12'),
+(7, '1309802814890', 'service', 1, '2025-10-14 15:43:22', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-14 08:43:22'),
+(8, '1309802814890', 'marketing', 0, '2025-10-14 15:43:22', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-14 08:43:22'),
+(17, '6531503056', 'service', 1, '2025-10-19 19:47:29', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-19 12:47:30'),
+(18, '6531503056', 'marketing', 0, '2025-10-19 19:47:29', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-19 12:47:30'),
 (21, '0641815842', 'service', 1, '2025-08-25 16:31:31', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', '2025-08-25 09:31:32'),
 (22, '0641815842', 'marketing', 1, '2025-08-25 16:31:31', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', '2025-08-25 09:31:32'),
 (69, '1234567890123', 'service', 1, '2025-08-27 11:44:12', '159.192.20.96', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/139.0.7258.76 Mobile/15E148 Safari/604.1', '2025-08-27 04:44:12'),
@@ -119,8 +106,8 @@ INSERT INTO `consent_logs` (`id`, `citizen_id`, `purpose`, `consent`, `accepted_
 (100, '0987654321', 'marketing', 1, '2025-08-27 11:39:04', '159.192.20.96', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/139.0.7258.76 Mobile/15E148 Safari/604.1', '2025-08-27 04:39:04'),
 (239, '653150', 'service', 1, '2025-09-01 18:14:06', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', '2025-09-01 11:14:07'),
 (240, '653150', 'marketing', 1, '2025-09-01 18:14:06', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', '2025-09-01 11:14:07'),
-(263, '22222222', 'service', 1, '2025-09-16 19:47:26', '2405:9800:b910:18b0:1861:43f7:492:9e07', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-16 12:47:26'),
-(264, '22222222', 'marketing', 1, '2025-09-16 19:47:26', '2405:9800:b910:18b0:1861:43f7:492:9e07', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-16 12:47:26'),
+(263, '22222222', 'service', 1, '2025-10-08 00:24:02', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-07 17:24:02'),
+(264, '22222222', 'marketing', 0, '2025-10-08 00:24:02', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-07 17:24:02'),
 (327, '1129901789025', 'service', 1, '2025-09-04 16:17:05', '202.28.45.140', 'Mozilla/5.0 (Linux; Android 13; V2124 Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/139.0.7258.158 Mobile Safari/537.36 Line/15.14.1/IAB', '2025-09-04 09:17:06'),
 (328, '1129901789025', 'marketing', 1, '2025-09-04 16:17:05', '202.28.45.140', 'Mozilla/5.0 (Linux; Android 13; V2124 Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/139.0.7258.158 Mobile Safari/537.36 Line/15.14.1/IAB', '2025-09-04 09:17:06'),
 (345, '1908980281489', 'service', 1, '2025-09-04 23:16:09', '2405:9800:b910:18b0:10a9:55e8:f03:8634', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Safari Line/15.13.0', '2025-09-04 16:16:08'),
@@ -138,7 +125,17 @@ INSERT INTO `consent_logs` (`id`, `citizen_id`, `purpose`, `consent`, `accepted_
 (515, '9999999', 'service', 1, '2025-09-16 19:44:24', '2405:9800:b910:18b0:1861:43f7:492:9e07', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-16 12:44:24'),
 (516, '9999999', 'marketing', 1, '2025-09-16 19:44:24', '2405:9800:b910:18b0:1861:43f7:492:9e07', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-16 12:44:24'),
 (535, '1214777777777', 'service', 1, '2025-09-16 20:54:17', '::ffff:127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-16 13:54:18'),
-(536, '1214777777777', 'marketing', 1, '2025-09-16 20:54:17', '::ffff:127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-16 13:54:18');
+(536, '1214777777777', 'marketing', 1, '2025-09-16 20:54:17', '::ffff:127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-16 13:54:18'),
+(875, '123456', 'service', 1, '2025-09-25 23:18:59', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-25 16:18:59'),
+(876, '123456', 'marketing', 0, '2025-09-25 23:18:59', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-25 16:18:59'),
+(881, '1234', 'service', 1, '2025-09-25 23:10:11', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-25 16:10:11'),
+(882, '1234', 'marketing', 0, '2025-09-25 23:10:11', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-09-25 16:10:11'),
+(979, '1809802814890', 'service', 1, '2025-10-09 23:57:22', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-09 16:57:23'),
+(980, '1809802814890', 'marketing', 0, '2025-10-09 23:57:22', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-09 16:57:23'),
+(981, '1111111111111', 'service', 1, '2025-10-10 00:18:27', '2403:6200:8853:5e18:3d02:28e7:6454:c24e', 'Mozilla/5.0 (Linux; Android 13; V2124 Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.7339.207 Mobile Safari/537.36 Line/15.16.2/IAB', '2025-10-09 17:18:26'),
+(982, '1111111111111', 'marketing', 1, '2025-10-10 00:18:27', '2403:6200:8853:5e18:3d02:28e7:6454:c24e', 'Mozilla/5.0 (Linux; Android 13; V2124 Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.7339.207 Mobile Safari/537.36 Line/15.16.2/IAB', '2025-10-09 17:18:26'),
+(1043, '3909900557154', 'service', 1, '2025-10-14 15:43:11', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-14 08:43:12'),
+(1044, '3909900557154', 'marketing', 0, '2025-10-14 15:43:11', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0', '2025-10-14 08:43:12');
 
 -- --------------------------------------------------------
 
@@ -159,8 +156,7 @@ INSERT INTO `departments` (`id`, `name`) VALUES
 (61, 'แผนกจักษุ'),
 (62, 'ตรวจโรค'),
 (63, 'แผนกอายุรกรรมโรคหัวใจ'),
-(64, 'แผนกรังสี '),
-(81, '.');
+(64, 'แผนกรังสี.');
 
 -- --------------------------------------------------------
 
@@ -211,13 +207,8 @@ INSERT INTO `slots` (`id`, `department_id`, `slot_date`, `available_seats`, `sta
 (72, 58, '2025-04-25', 1, '15:00:00', '16:00:00', 1),
 (73, 58, '2025-06-10', 6, '15:00:00', '16:00:00', 6),
 (84, 60, '2025-08-12', 20, '08:00:00', '11:00:00', 20),
-(85, 62, '2025-09-27', 19, '08:00:00', '09:00:00', 30),
 (88, 60, '2025-08-11', 5, '12:00:00', '14:00:00', 5),
-(92, 72, '2025-09-11', 6, '08:00:00', '15:00:00', 6),
-(95, 62, '2025-09-09', 20, '08:00:00', '09:00:00', 21),
-(97, 63, '2025-09-26', 50, '08:00:00', '11:00:00', 50),
-(98, 61, '2025-09-25', 11, '13:00:00', '14:00:00', 12),
-(99, 62, '2025-09-30', 20, '10:00:00', '11:00:00', 20);
+(92, 72, '2025-09-11', 6, '08:00:00', '15:00:00', 6);
 
 -- --------------------------------------------------------
 
@@ -247,15 +238,17 @@ CREATE TABLE `user` (
 --
 
 INSERT INTO `user` (`id`, `hn`, `citizenId`, `phone`, `password`, `createdAt`, `name`, `birthday`, `prefix`, `line_id`, `role`, `line_display_name`, `line_picture_url`, `updatedAt`) VALUES
-(38, 'HN00000008', '1909802814890', '0839277425', '$2b$10$X141b6Sfy3oY9pDWFujX4OWPG5jxeE3zzDr2okeSAQ87z7l2yfJaC', '2025-08-10 20:45:39.000', 'ปุณยวีร์ พร้อมมูล', '2003-12-24', 'นาย', 'U31b611e622371de6233e330f9c4ceef6', 'user', 'Sprite', 'https://profile.line-scdn.net/0hzUHfwAl-JXplHzTwJbFbRBVPJhBGbnxoT39sTANPL0hfKGsoQS1iSwcXKUJeLGMsSi1vFFMYeUNHJmZUEHozGldaEksrUGBNTXEVWC0fOFYqQSF3Kh49RSV0eDcPdx9vDXk4HiNHcjYEdzZXS349HSsDJwE2cD9lHUhJLGAtS_kKHVIvSHhsHlEWe0LQ', '2025-09-18 12:01:51'),
+(38, 'HN00000008', '1909802814890', '0839277425', '$2b$10$X141b6Sfy3oY9pDWFujX4OWPG5jxeE3zzDr2okeSAQ87z7l2yfJaC', '2025-08-10 20:45:39.000', 'ปุณยวีร์ พร้อมมูล', '2003-12-24', 'นาย', 'U31b611e622371de6233e330f9c4ceef6', 'user', 'Sprite', 'https://profile.line-scdn.net/0hzUHfO_dIJXplHzv-swJbRBVPJhBGbnxoT39sTANPL0hfKGsoQS1iSwcXKUJeLGMsSi1vFFMYeUNHJmZUEHozGldaEksrUGBNTXEVWC0fOFYqQSF3Kh49RSV0eDcPdx9vDXk4HiNHcjYEdzZXS349HSsDJwE2cD9lHUhJLGAtS_kKHVIvSHhsHlEWe0LQ', '2025-10-09 17:24:17'),
 (39, 'HN00000009', '1214755555555', '2154684444', '$2b$10$JP4h9gwwjHNUQ/zmQuHXz.P9XwkYn6HMGes6RTcrNgM176QMTEj4.', '2025-08-10 21:14:04.000', 'sun nuttnaon', '2004-01-12', 'นาย', 'Ud7bb9b9a8015a54327af69ca08dfd995', 'user', 'S', 'https://profile.line-scdn.net/0hazTjyhZcPlV5Ey83LyVAKglDPT9aYmdHU3JzYUUXMGwQc34HBn0hO0sUNzBCdioFVXFxZ05HNzJ1AEkzZ0XCYX4jY2RFJXsCXHV5uw', '2025-08-11 14:18:59'),
 (46, 'HN00000010', '2839901064910', '0962713586', '$2b$10$7RcDyhgp44q6/fTGhMktZ.OG7EBbnFvsOQBMn0GTI76aS7ZP/YdFm', '2025-08-11 21:30:01.000', 'จรัสศรี จินดานิล', '2004-03-11', 'นางสาว', 'U0f18bdbe2b0cea12bd3f9aa5573ec276', 'user', 'Fah', 'https://profile.line-scdn.net/0hNiSHoHMEEUZ-MQBW2MFvOQ5hEixdQEhUVFJeIk83HHdKAwVAUV4OI04zSCFAUVQVVVELKR5jTyRyImYgYGftcnkBTHdCB1QRW1dWqA', '2025-08-11 14:31:19'),
 (47, 'HN00000011', '3909900557154', '0819590704', '$2b$10$lQ2gf8o8U5yapimkdL/Lk.79hxFepJub4XdyxUQEjYw88g85MRIbG', '2025-08-13 19:25:47.000', 'สุมาลี  พร้อมมูล', '1966-07-30', 'นาง', 'U4cb225e6c2321d27a639213b5a690310', 'user', 'à¸ªà¸¸à¸¡à¸²à¸¥à¸µ', 'https://profile.line-scdn.net/0hgwbUcIvMOFhPLC3gy1NGJz98OzJsXWFKYkwkaXIpYTshSH4MMU13anguMzx1HyteNx5yN3skNG1DP08-UXrEbEgcZWlzGn0Pakp_tg', '2025-08-13 12:26:57'),
 (48, 'HN00000012', '1104500037699', '0958425523', '$2b$10$k5ELlIS995tRiQHOZ3SZUOXekajEE49BD1yV7z8reU.la/zl/.K7m', '2025-08-19 10:50:02.000', 'Tyn', '2025-08-19', 'นาย', 'U16c3160e9728a10f5af7fcc77a04eaec', 'user', 'tr', NULL, '2025-08-19 03:58:28'),
-(49, 'HN00000013', '1129901789001', '0991044639', '$2b$10$wLLFBCGD9MsEab2yyZCJkeJN1CJfwnuIjBHWqHomnRbnvB91amOsC', '2025-08-20 20:42:04.000', 'Paramest Suetrong ', '2025-08-20', 'นาย', 'Ua9383f87bbaae8e81e1681413e164ce0', 'user', '(B) â¢Nâ¢Uâ¢T', 'https://profile.line-scdn.net/0hiXNWNlPWNndjLiPslAhICBN-NR1AX29lGksqE18rbkIJTHUlS0xwRFQsYU5cFyMjTkkrRlYmbxNvPUERfXjKQ2Qea0ZfGHMgRkhxmQ', '2025-08-20 13:43:51'),
+(49, 'HN00000013', '1129901789001', '0991044639', '$2b$10$wLLFBCGD9MsEab2yyZCJkeJN1CJfwnuIjBHWqHomnRbnvB91amOsC', '2025-08-20 20:42:04.000', 'Paramest Suetrong ', '2025-08-20', 'นาย', NULL, 'user', '(B) â¢Nâ¢Uâ¢T', 'https://profile.line-scdn.net/0hiXNWNlPWNndjLiPslAhICBN-NR1AX29lGksqE18rbkIJTHUlS0xwRFQsYU5cFyMjTkkrRlYmbxNvPUERfXjKQ2Qea0ZfGHMgRkhxmQ', '2025-10-09 17:25:10'),
 (50, 'HN00000014', '1309802814890', '0641815842', '$2b$10$uzqXKNi7FVqJcmUMCSoncuXuiqXq6Km8b.3cBjNieBA0M6UQyhtuG', '2025-08-23 23:11:16.000', 'จันดี ดีใจ', '1978-12-23', 'นาย', NULL, 'user', NULL, NULL, '2025-08-23 16:11:16'),
 (51, 'HN00000015', '1234567890123', '0987654321', '$2b$10$M.fRqrjj9/Ty3fMMwqQ41u12BrKldpONyL5fEinpyAonE2rvn/fZK', '2025-08-27 01:19:49.000', 'ขนมต้ม วันจัน', '1977-04-27', 'นาย', 'U820d58c1ca13db2f201f8329239c82fd', 'user', 'ððð', 'https://profile.line-scdn.net/0h2ea3ZIChbUpMSn70S5wTNTwabiBvOzRYYyonLHodNnMjfCgYYCsgLixINHMjfCgfZikjK3pDOylAWRosUhyRfkt6MHtwfCgdaSwqpA', '2025-08-27 04:44:32'),
-(55, 'HN00000016', '1234524680246', '0987654321', '$2b$10$FJk7aDOW0duJ9H5OOMLhN.qfANyMyMRsb/bH4pribSRZksYvahjkG', '2025-09-15 21:58:01.000', 'ยามีน ยามาว', '2003-09-11', 'นาย', NULL, 'user', NULL, NULL, '2025-09-15 14:58:01');
+(55, 'HN00000016', '1234524680246', '0987654321', '$2b$10$FJk7aDOW0duJ9H5OOMLhN.qfANyMyMRsb/bH4pribSRZksYvahjkG', '2025-09-15 21:58:01.000', 'ยามีน ยามาว', '2003-09-11', 'นาย', NULL, 'user', NULL, NULL, '2025-09-15 14:58:01'),
+(56, 'HN00000017', '1809802814890', '0641815842', '$2b$10$l/f9suemp4wxkgJuQGLzZ.4NhjeozX00vhcGtRR4bfYMR383aza/W', '2025-10-09 23:56:15.000', 'สานิต ใจใจ', '2024-03-09', 'นาย', NULL, 'user', NULL, NULL, '2025-10-09 16:56:15'),
+(57, 'HN00000018', '1111111111111', '0000000000', '$2b$10$5FeDDBQcpXs62mSPjwHfYekzcFTLZSBs0hxXDdvbFKrTNs0hOGrXm', '2025-10-10 00:15:21.000', 'เบียร์ ลีโอ', '2025-10-10', 'นาย', 'Ua9383f87bbaae8e81e1681413e164ce0', 'user', '(B) â¢Nâ¢Uâ¢T', 'https://profile.line-scdn.net/0hiXNWNlPWNndjLiPslAhICBN-NR1AX29lGksqE18rbkIJTHUlS0xwRFQsYU5cFyMjTkkrRlYmbxNvPUERfXjKQ2Qea0ZfGHMgRkhxmQ', '2025-10-09 17:25:42');
 
 --
 -- Indexes for dumped tables
@@ -312,6 +305,7 @@ ALTER TABLE `slots`
 ALTER TABLE `user`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `citizenId` (`citizenId`),
+  ADD UNIQUE KEY `idx_citizenId` (`citizenId`),
   ADD UNIQUE KEY `hn` (`hn`),
   ADD UNIQUE KEY `line_id` (`line_id`),
   ADD UNIQUE KEY `uniq_line_id` (`line_id`),
@@ -325,19 +319,19 @@ ALTER TABLE `user`
 -- AUTO_INCREMENT for table `admins`
 --
 ALTER TABLE `admins`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=365;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=391;
 
 --
 -- AUTO_INCREMENT for table `consent_logs`
 --
 ALTER TABLE `consent_logs`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=819;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1051;
 
 --
 -- AUTO_INCREMENT for table `departments`
@@ -355,13 +349,13 @@ ALTER TABLE `news`
 -- AUTO_INCREMENT for table `slots`
 --
 ALTER TABLE `slots`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=101;
 
 --
 -- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id` int(30) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `id` int(30) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=58;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

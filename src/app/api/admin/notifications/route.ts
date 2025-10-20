@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
-import { connectToDatabase } from '@/lib/mysql'
+import { getPool } from '@/lib/db' // ✅ เปลี่ยนบรรทัดนี้
 
 type AdminUser = {
   id: number
@@ -43,29 +43,26 @@ async function verifyAdminAuth() {
       return { error: 'NO_USER_ID', status: 401 }
     }
 
-    const connection = await connectToDatabase()
+    const pool = getPool() // ✅ เปลี่ยนบรรทัดนี้
 
-    try {
-      const [rows] = await connection.execute(
-        'SELECT id, username, position, is_approved FROM admins WHERE username = ?',
-        [userIdentifier]
-      )
+    const [rows] = await pool.execute( 
+      'SELECT id, username, position, is_approved FROM admins WHERE username = ?',
+      [userIdentifier]
+    )
 
-      const users = rows as AdminUser[]
-      const userData = users.length > 0 ? users[0] : null
+    const users = rows as AdminUser[]
+    const userData = users.length > 0 ? users[0] : null
 
-      if (
-        !userData ||
-        !userData.is_approved ||
-        !['SuperAdmin', 'เจ้าหน้าที่'].includes(userData.position)
-      ) {
-        return { error: 'INSUFFICIENT_PERMISSIONS', status: 403 }
-      }
-
-      return { success: true, userData }
-    } finally {
-      connection.end()
+    if (
+      !userData ||
+      !userData.is_approved ||
+      !['SuperAdmin', 'เจ้าหน้าที่'].includes(userData.position)
+    ) {
+      return { error: 'INSUFFICIENT_PERMISSIONS', status: 403 }
     }
+
+    return { success: true, userData }
+    // ✅ ลบ finally { connection.end() } ออก
   } catch (error) {
     console.error('Auth verification error:', error)
     return { error: 'INTERNAL_SERVER_ERROR', status: 500 }
@@ -86,7 +83,7 @@ export async function GET() {
     )
   }
 
-  const connection = await connectToDatabase()
+  const pool = getPool() // ✅ เปลี่ยนบรรทัดนี้
 
   try {
     console.log(
@@ -95,7 +92,7 @@ export async function GET() {
     )
 
     // ดึงจำนวน bookings ที่ยังไม่ได้อ่าน
-    const [unreadRows] = await connection.query(`
+    const [unreadRows] = await pool.query(`
       SELECT COUNT(*) AS unreadCount
       FROM bookings
       WHERE (is_read_by_admin = 0 OR is_read_by_admin IS NULL)
@@ -103,7 +100,7 @@ export async function GET() {
     `)
 
     // ดึงจำนวน bookings ทั้งหมดที่ pending
-    const [pendingRows] = await connection.query(`
+    const [pendingRows] = await pool.query(`
       SELECT COUNT(*) AS pendingCount
       FROM bookings
       WHERE status = 'pending'
@@ -111,7 +108,7 @@ export async function GET() {
 
     // ดึงรายการ bookings ล่าสุดที่ยังไม่ได้อ่าน (5 รายการแรก)
     // หมายเหตุ: ตารางไม่มีคอลัมน์ created_at จึงใช้ ORDER BY id DESC แทน
-    const [recentRows] = await connection.query(`
+    const [recentRows] = await pool.query(`
       SELECT
         id,
         name,
@@ -159,7 +156,6 @@ export async function GET() {
       },
       { status: 500 }
     )
-  } finally {
-    connection.end()
   }
+  // ✅ ลบ finally { connection.end() } ออก
 }

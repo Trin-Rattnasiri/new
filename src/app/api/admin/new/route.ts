@@ -4,14 +4,7 @@ import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
 import { v4 as uuidv4 } from "uuid"
-import mysql from "mysql2/promise"
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-})
+import { getPool } from "@/lib/db"
 
 // ✅ POST: Upload image
 export async function POST(req: Request) {
@@ -28,37 +21,62 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(bytes)
 
     const filename = `${uuidv4()}-${file.name}`
-    const filePath = path.join(process.cwd(), "public/news", filename)
+    
+    // 🔧 สร้างโฟลเดอร์ public/news/ ถ้ายังไม่มี
+    const uploadDir = path.join(process.cwd(), "public", "news")
+    try {
+      await fs.mkdir(uploadDir, { recursive: true })
+    } catch (err) {
+      console.log("Directory already exists or created")
+    }
+
+    const filePath = path.join(uploadDir, filename)
     const imageUrl = `/news/${filename}`
 
+    // 💾 บันทึกไฟล์
     await fs.writeFile(filePath, buffer)
+    console.log("✅ File saved:", filePath)
 
-    const connection = await pool.getConnection()
-    await connection.execute("INSERT INTO news (imageUrl, caption) VALUES (?, ?)", [imageUrl, caption])
-    connection.release()
+    // 💾 บันทึกลง Database
+    const pool = getPool()
+    await pool.execute(
+      "INSERT INTO news (imageUrl, caption) VALUES (?, ?)", 
+      [imageUrl, caption]
+    )
+    console.log("✅ Database updated:", imageUrl)
 
-    return NextResponse.json({ message: "Uploaded successfully", imageUrl, caption })
+    return NextResponse.json({ 
+      message: "Uploaded successfully", 
+      imageUrl, 
+      caption 
+    })
   } catch (error) {
-    console.error("Upload error:", error)
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 })
+    console.error("❌ Upload error:", error)
+    return NextResponse.json({ 
+      error: "Upload failed", 
+      details: error instanceof Error ? error.message : "Unknown error" 
+    }, { status: 500 })
   }
 }
 
-// ✅ GET: Load images
+// ✅ GET: Load all images
 export async function GET() {
   try {
-    const connection = await pool.getConnection()
-    const [rows] = await connection.query("SELECT * FROM news ORDER BY createdAt DESC")
-    connection.release()
+    const pool = getPool()
+    const [rows] = await pool.query("SELECT * FROM news ORDER BY createdAt DESC")
 
+    console.log("✅ Fetched images:", (rows as any[]).length)
     return NextResponse.json(rows)
   } catch (error) {
-    console.error("GET error:", error)
-    return NextResponse.json({ error: "Failed to load news images" }, { status: 500 })
+    console.error("❌ GET error:", error)
+    return NextResponse.json({ 
+      error: "Failed to load news images",
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
   }
 }
 
-// ✅ DELETE: ลบรูปภาพ
+// ✅ DELETE: Remove image
 export async function DELETE(req: Request) {
   const url = new URL(req.url)
   const id = url.searchParams.get("id")
@@ -67,28 +85,37 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Missing ID" }, { status: 400 })
   }
 
-  const connection = await pool.getConnection()
   try {
+    const pool = getPool()
+    
     // 🔍 ดึง path รูปจากฐานข้อมูล
-    const [rows] = await connection.query("SELECT imageUrl FROM news WHERE id = ?", [id])
+    const [rows] = await pool.query("SELECT imageUrl FROM news WHERE id = ?", [id])
+    
     if ((rows as any[]).length === 0) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 })
+      return NextResponse.json({ error: "Image not found" }, { status: 404 })
     }
 
     const imageUrl = (rows as any[])[0].imageUrl
     const imagePath = path.join(process.cwd(), "public", imageUrl)
 
-    // 🗑 ลบไฟล์ภาพ
-    await fs.unlink(imagePath)
+    // 🗑️ ลบไฟล์ภาพ
+    try {
+      await fs.unlink(imagePath)
+      console.log("✅ File deleted:", imagePath)
+    } catch (fileErr) {
+      console.warn("⚠️ File not found, continuing with DB deletion:", imagePath)
+    }
 
     // ❌ ลบข้อมูลจากฐานข้อมูล
-    await connection.query("DELETE FROM news WHERE id = ?", [id])
+    await pool.query("DELETE FROM news WHERE id = ?", [id])
+    console.log("✅ Database record deleted:", id)
 
-    return NextResponse.json({ message: "Deleted" })
+    return NextResponse.json({ message: "Deleted successfully" })
   } catch (err) {
     console.error("❌ Delete error:", err)
-    return NextResponse.json({ error: "Failed to delete image" }, { status: 500 })
-  } finally {
-    connection.release()
+    return NextResponse.json({ 
+      error: "Failed to delete image",
+      details: err instanceof Error ? err.message : "Unknown error"
+    }, { status: 500 })
   }
 }

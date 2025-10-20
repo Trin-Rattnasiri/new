@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
-import { connectToDatabase } from '@/lib/mysql'
+import { getPool } from '@/lib/db' 
 
 type AdminUser = {
   id: number
@@ -35,27 +35,25 @@ async function verifyAdminAuth() {
       decoded.sub || decoded.userId || decoded.id || decoded.user_id
     if (!userIdentifier) return { error: 'NO_USER_ID', status: 401 }
 
-    const connection = await connectToDatabase()
-    try {
-      const [rows] = await connection.execute(
-        'SELECT id, username, position, is_approved FROM admins WHERE username = ?',
-        [userIdentifier]
-      )
-      const users = rows as AdminUser[]
-      const userData = users.length > 0 ? users[0] : null
+    const pool = getPool() // ✅ เปลี่ยนบรรทัดนี้
+    
+    const [rows] = await pool.execute( 
+      'SELECT id, username, position, is_approved FROM admins WHERE username = ?',
+      [userIdentifier]
+    )
+    const users = rows as AdminUser[]
+    const userData = users.length > 0 ? users[0] : null
 
-      if (
-        !userData ||
-        !userData.is_approved ||
-        !['SuperAdmin', 'เจ้าหน้าที่'].includes(userData.position)
-      ) {
-        return { error: 'INSUFFICIENT_PERMISSIONS', status: 403 }
-      }
-
-      return { success: true, userData }
-    } finally {
-      connection.end()
+    if (
+      !userData ||
+      !userData.is_approved ||
+      !['SuperAdmin', 'เจ้าหน้าที่'].includes(userData.position)
+    ) {
+      return { error: 'INSUFFICIENT_PERMISSIONS', status: 403 }
     }
+
+    return { success: true, userData }
+    // ✅ ลบ finally { connection.end() } ออก
   } catch (error) {
     console.error('Auth verification error:', error)
     return { error: 'INTERNAL_SERVER_ERROR', status: 500 }
@@ -82,7 +80,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const connection = await connectToDatabase()
+  const pool = getPool() // ✅ เปลี่ยนบรรทัดนี้
 
   try {
     // --- รับ payload อย่างยืดหยุ่น: JSON / form / query ---
@@ -133,8 +131,7 @@ export async function POST(request: Request) {
 
     if (markAllRead) {
       // ทำเครื่องหมายทั้งหมดที่ยัง pending และยังไม่อ่าน เป็นอ่านแล้ว
-      const [result] = await connection.execute(`
-        UPDATE bookings
+      const [result] = await pool.execute(` 
         SET is_read_by_admin = 1, read_at = NOW()
         WHERE (is_read_by_admin = 0 OR is_read_by_admin IS NULL)
           AND status = 'pending'
@@ -153,7 +150,7 @@ export async function POST(request: Request) {
 
     if (bookingId) {
       // ทำเครื่องหมายเฉพาะรายการที่ระบุ
-      const [result] = await connection.execute(
+      const [result] = await pool.execute( 
         `
         UPDATE bookings
         SET is_read_by_admin = 1, read_at = NOW()
@@ -196,7 +193,6 @@ export async function POST(request: Request) {
       },
       { status: 500 }
     )
-  } finally {
-    connection.end()
   }
+  // ✅ ลบ finally { connection.end() } ออก
 }

@@ -4,12 +4,14 @@ import bcrypt from "bcryptjs";
 
 // ✅ ตั้งค่าการเชื่อมต่อ MySQL
 const pool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "hospital_booking",
+  host: "db",  // ✅ ใช้ IP แทน localhost
+  port: 3306,
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "hospital_booking",
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 50,
+  connectTimeout: 10000,
 });
 
 // ✅ POST: สมัครสมาชิก

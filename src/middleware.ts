@@ -19,6 +19,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/admin/que",
   "/api/admin/new",
   "/api/user/signup",
+  "/api/medical-history",
 ]
 
 const PROTECTED_API_PREFIXES = [
